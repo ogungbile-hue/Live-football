@@ -14,7 +14,6 @@ export { getMatchStats, getLeagues, getTopTeams };
 const providers = [
   new StreamedPkProvider(),
   new CdnLiveProvider(),
-  new WatchFootyProvider(),
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
@@ -107,10 +106,6 @@ export async function getMatchDetails(matchId: string): Promise<Match | null> {
   const cleanId = matchId.replace(/^(streamed-|cdnlive-)/, '');
   const found = matches.find(m => m.id === matchId || m.id === cleanId || m.id.endsWith(cleanId));
   if (found) return found;
-
-  // Try WatchFooty endpoint directly if not in merged list
-  const wfMatch = await getWfMatchDetails(matchId);
-  if (wfMatch) return wfMatch;
 
   return null;
 }

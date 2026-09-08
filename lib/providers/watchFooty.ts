@@ -38,22 +38,8 @@ export class WatchFootyProvider implements StreamProvider {
     return raw.map(normalizeWatchFootyMatch);
   }
 
-  async resolveStreams(
-    matchTitle: string,
-    homeTeam: string,
-    awayTeam: string,
-    matchId: string,
-    preFetchedMatch?: Match | null
-  ): Promise<Channel[]> {
-    const match = preFetchedMatch || await getMatchDetails(matchId);
-    if (!match || !match.sources) return [];
-    
-    return match.sources.map((s, idx) => ({
-      name: `Server ${idx + 1}`,
-      url: s.url,
-      provider: this.id,
-      quality: s.quality ? String(s.quality).toUpperCase() : 'SD',
-    }));
+  async resolveStreams(): Promise<Channel[]> {
+    return [];
   }
 }
 
@@ -123,17 +109,8 @@ export function normalizeWatchFootyMatch(match: any): Match {
     poster: poster,
     venue: match.venue || '',
     note: match.note || '',
-    sources: streams.map((s: any, idx: number) => ({ 
-      source: `wf-${s.source || 'stream'}-${idx + 1}`,
-      id: String(s.id),
-      url: s.url,
-      label: `Server ${idx + 1}`,
-      quality: s.quality ? String(s.quality).toUpperCase() : 'SD'
-    })),
-    fallbackChannels: streams.map((s: any, idx: number) => ({
-      name: `Server ${idx + 1} (WatchFooty)`,
-      url: s.url,
-    })),
+    sources: [],
+    fallbackChannels: [],
     currentMinute,
     currentMinuteNumber,
     homeScore: Math.max(0, match.scores?.home ?? match.homeScore ?? 0),
