@@ -1,19 +1,20 @@
 import crypto from 'crypto';
 import logger from './logger';
 import { Match, Channel } from './types';
-import { WatchFootyProvider, getMatchDetails, getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
+import { WatchFootyProvider, getMatchDetails as getWfMatchDetails, getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
 import { getCacheManager } from './cache/cacheManager';
+import { teamsMatch } from './utils/matching';
 
 const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_123_abc';
 
-export { getMatchDetails, getMatchStats, getLeagues, getTopTeams };
+export { getMatchStats, getLeagues, getTopTeams };
 
 const providers = [
-  new WatchFootyProvider(),
-  new CdnLiveProvider(),
   new StreamedPkProvider(),
+  new CdnLiveProvider(),
+  new WatchFootyProvider(),
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
@@ -29,15 +30,89 @@ export function getStreamRedirectUrl(originalUrl: string): string {
 export async function getMatches(): Promise<Match[]> {
   const cache = getCacheManager();
   return cache.swr('all_matches', async () => {
-    const watchFooty = providers.find(p => p.id === 'watchfooty') as WatchFootyProvider;
-    if (!watchFooty) return [];
-    return watchFooty.fetchMatches();
+    const results = await Promise.allSettled(providers.map(p => p.fetchMatches()));
+    
+    const allMatches: Match[] = [];
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        allMatches.push(...r.value);
+      }
+    }
+
+    if (allMatches.length === 0) return [];
+
+    // Deduplicate and merge matches across providers
+    const mergedList: Match[] = [];
+    const usedIndices = new Set<number>();
+
+    for (let i = 0; i < allMatches.length; i++) {
+      if (usedIndices.has(i)) continue;
+      const base = { ...allMatches[i] };
+      usedIndices.add(i);
+
+      for (let j = i + 1; j < allMatches.length; j++) {
+        if (usedIndices.has(j)) continue;
+        const candidate = allMatches[j];
+
+        if (base.id === candidate.id || teamsMatch(base.title, candidate.title)) {
+          usedIndices.add(j);
+          // Merge metadata
+          if (candidate.status === 'live') base.status = 'live';
+          if (!base.homeTeam.badge && candidate.homeTeam.badge) base.homeTeam.badge = candidate.homeTeam.badge;
+          if (!base.awayTeam.badge && candidate.awayTeam.badge) base.awayTeam.badge = candidate.awayTeam.badge;
+          if (!base.leagueLogo && candidate.leagueLogo) base.leagueLogo = candidate.leagueLogo;
+          if (!base.poster && candidate.poster) base.poster = candidate.poster;
+          if (candidate.tournament && (!base.tournament || base.tournament === 'Football')) base.tournament = candidate.tournament;
+          if (candidate.country && !base.country) base.country = candidate.country;
+          if (candidate.currentMinute) base.currentMinute = candidate.currentMinute;
+          if (candidate.currentMinuteNumber > 0) base.currentMinuteNumber = candidate.currentMinuteNumber;
+          if (candidate.homeScore > 0 || candidate.awayScore > 0) {
+            base.homeScore = candidate.homeScore;
+            base.awayScore = candidate.awayScore;
+          }
+          if (candidate.sources && candidate.sources.length > 0) {
+            base.sources = [...(base.sources || []), ...candidate.sources];
+          }
+          if (candidate.fallbackChannels && candidate.fallbackChannels.length > 0) {
+            base.fallbackChannels = [...(base.fallbackChannels || []), ...candidate.fallbackChannels];
+          }
+        }
+      }
+
+      mergedList.push(base);
+    }
+
+    // Sort: Live matches first, then matches with available sources/streams, then priority, then timestamp
+    mergedList.sort((a, b) => {
+      if (a.status === 'live' && b.status !== 'live') return -1;
+      if (b.status === 'live' && a.status !== 'live') return 1;
+      const aHasStreams = (a.sources?.length || 0) > 0 ? 0 : 1;
+      const bHasStreams = (b.sources?.length || 0) > 0 ? 0 : 1;
+      if (aHasStreams !== bHasStreams) return aHasStreams - bHasStreams;
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.timestamp - b.timestamp;
+    });
+
+    return mergedList;
   }, 15);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
   const matches = await getMatches();
   return matches.filter(m => m.status === 'live');
+}
+
+export async function getMatchDetails(matchId: string): Promise<Match | null> {
+  const matches = await getMatches();
+  const cleanId = matchId.replace(/^(streamed-|cdnlive-)/, '');
+  const found = matches.find(m => m.id === matchId || m.id === cleanId || m.id.endsWith(cleanId));
+  if (found) return found;
+
+  // Try WatchFooty endpoint directly if not in merged list
+  const wfMatch = await getWfMatchDetails(matchId);
+  if (wfMatch) return wfMatch;
+
+  return null;
 }
 
 export async function resolveAllStreams(
@@ -69,6 +144,20 @@ export async function resolveAllStreams(
       }
     }
 
+    // If preFetchedMatch has fallback channels, include them
+    if (preFetchedMatch?.fallbackChannels) {
+      for (const fc of preFetchedMatch.fallbackChannels) {
+        if (fc.url && !allServers.some(s => s.url === fc.url)) {
+          allServers.push({
+            name: fc.name || 'Fallback Server',
+            url: fc.url,
+            provider: 'direct',
+            quality: 'HD'
+          });
+        }
+      }
+    }
+
     if (allServers.length === 0) {
       throw new Error('No streams available from any provider');
     }
@@ -81,11 +170,11 @@ export async function resolveAllStreams(
     let serverIndex = 1;
 
     for (const server of allServers) {
-      if (!seenUrls.has(server.url)) {
+      if (server.url && !seenUrls.has(server.url)) {
         seenUrls.add(server.url);
         uniqueServers.push({
           ...server,
-          name: `Server ${serverIndex++}`,
+          name: server.name || `Server ${serverIndex++}`,
           proxiedUrl: getStreamRedirectUrl(server.url),
         });
       }
@@ -97,5 +186,5 @@ export async function resolveAllStreams(
       channels: uniqueServers,
       serverCount: uniqueServers.length,
     };
-  }, 30);
+  }, 20);
 }

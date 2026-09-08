@@ -1,7 +1,7 @@
 {
-  "name": "FootyLive Premium Streams",
-  "short_name": "FootyLive",
-  "description": "Watch live football matches free on FootyLive. Real-time scores and premium ad-free streams.",
+  "name": "82 LIVE FOOTBALL",
+  "short_name": "82Live",
+  "description": "Watch live football matches with multi-server streams and real-time scores on 82 LIVE FOOTBALL.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#040405",

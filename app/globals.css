@@ -1,14 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
+/* === Eighty-Two Brand Kit Keyframes === */
+@keyframes eightytwoRingRotate { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes eightytwoRingRotateRev { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+@keyframes eightytwoRimPulse { 0%,100%{opacity:.45} 50%{opacity:.95} }
+@keyframes eightytwoCenterFade { 0%,100%{opacity:1} 50%{opacity:.78} }
+@keyframes eightytwoDotGlow { 0%,100%{r:3.5;opacity:.7} 50%{r:5;opacity:1} }
+
 /* === Tailwind v4 Theme Configuration === */
 @theme {
-  --color-background: #09090b;
-  --color-surface: #18181b;
-  --color-border: #27272a;
+  --color-background: #07090f;
+  --color-surface: #0f172a;
+  --color-border: #1e293b;
 
-  /* Custom intermediate color shades missing from default palette */
+  /* Eighty-Two Brand Colors */
+  --color-atomic-orange: #ff6b35;
+  --color-atomic-orange-hover: #ff8554;
+  --color-atomic-orange-dark: #cc4a1a;
+  --color-slate-navy: #141c2e;
+  --color-slate-navy-dark: #0a0f1c;
+  --color-slate-navy-card: #111827;
+  --color-slate-navy-border: #1e2e48;
+
+  /* Custom intermediate color shades */
   --color-zinc-150: #e8e8ec;
   --color-zinc-250: #d1d1d6;
   --color-zinc-350: #a8a8b3;
@@ -16,13 +32,12 @@
   --color-zinc-550: #5a5a65;
   --color-zinc-650: #4a4a55;
   --color-zinc-750: #333338;
-  --color-zinc-850: #1f1f23;
-  --color-violet-450: #9b7dff;
-  --color-violet-650: #6d28d9;
-  --color-violet-850: #3b0f7a;
-  --color-indigo-550: #5b5bd6;
-  --color-indigo-650: #4338ca;
-  --color-amber-550: #d97706;
+  --color-zinc-850: #141c2e;
+  
+  --color-orange-450: #ff8554;
+  --color-orange-550: #ff6b35;
+  --color-orange-650: #e0531f;
+  --color-orange-850: #8c2a08;
 
   /* Custom animation */
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -36,18 +51,30 @@
 
 /* === CSS Custom Properties for theming === */
 :root {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 5.9%;
-  --card-foreground: 0 0% 98%;
-  --border: 240 5.9% 15%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 263.4 70% 50.4%;
+  --background: 220 20% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 17 100% 60%;
   --accent-foreground: 0 0% 98%;
 }
 
-/* === Base styles (no aggressive universal resets) === */
+.dark {
+  --background: 228 36% 4%;
+  --foreground: 210 40% 98%;
+  --card: 222 40% 10%;
+  --card-foreground: 210 40% 98%;
+  --border: 217 33% 17%;
+  --muted: 222 39% 13%;
+  --muted-foreground: 217 20% 65%;
+  --accent: 17 100% 60%;
+  --accent-foreground: 0 0% 98%;
+}
+
+/* === Base styles === */
 *,
 *::before,
 *::after {
@@ -70,39 +97,43 @@ body {
   overflow-x: hidden;
 }
 
-/* === Glow Orb Decorations === */
+/* === 82 Glow Orb Atmosphere === */
 .glow-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(150px);
-  opacity: 0.08;
+  filter: blur(160px);
+  opacity: 0.12;
   pointer-events: none;
   z-index: 0;
 }
 
 .dark .glow-orb {
-  opacity: 0.15;
+  opacity: 0.22;
 }
 
-.glow-orb-purple {
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 80%);
+.glow-orb-orange {
+  background: radial-gradient(circle, #ff6b35 0%, transparent 75%);
+}
+
+.glow-orb-navy {
+  background: radial-gradient(circle, #1a2540 0%, transparent 75%);
 }
 
 .glow-orb-emerald {
-  background: radial-gradient(circle, #10b981 0%, transparent 80%);
+  background: radial-gradient(circle, #10b981 0%, transparent 75%);
 }
 
-/* === Dynamic Glassmorphic Panel Design System === */
+/* === 82 Dynamic Glassmorphic Panel Design System === */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .dark .glass-panel {
-  background: rgba(13, 13, 16, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 107, 53, 0.12);
 }
 
 .glass-panel-hover {
@@ -110,16 +141,16 @@ body {
 }
 
 .glass-panel-hover:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(124, 58, 237, 0.2);
-  box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.06), 0 0 20px -2px rgba(124, 58, 237, 0.04);
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(255, 107, 53, 0.4);
+  box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.08), 0 0 20px -2px rgba(255, 107, 53, 0.15);
   transform: translateY(-2px);
 }
 
 .dark .glass-panel-hover:hover {
-  background: rgba(18, 18, 23, 0.75);
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 25px -2px rgba(139, 92, 246, 0.12);
+  background: rgba(20, 28, 46, 0.85);
+  border-color: rgba(255, 107, 53, 0.45);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.85), 0 0 30px -2px rgba(255, 107, 53, 0.22);
 }
 
 /* === Custom Adaptive Scrollbars === */
@@ -131,30 +162,30 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.18);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: #ff6b35;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 107, 53, 0.25);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: #ff6b35;
 }
 
-/* Premium utility to completely hide scrollbars but keep scrolling active */
+/* Utility to completely hide scrollbars but keep scrolling active */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 .scrollbar-none {
-  -ms-overflow-style: none;  /* IE/Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* === Immersive Premium Micro-Animations & Core Keyframes === */
+/* === Immersive 82 Micro-Animations === */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -179,7 +210,7 @@ body {
   animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-/* === Custom elegant horizontal scrollbar for leagues shelf === */
+/* === Custom horizontal scrollbar for leagues shelf === */
 .custom-horizontal-scrollbar::-webkit-scrollbar {
   height: 4px;
 }
@@ -187,19 +218,19 @@ body {
   background: transparent;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(255, 107, 53, 0.3);
   border-radius: 9999px;
 }
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.55);
+  background: #ff6b35;
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(255, 107, 53, 0.3);
 }
 .dark .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.45);
+  background: #ff6b35;
 }
 .custom-horizontal-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.2) transparent;
+  scrollbar-color: rgba(255, 107, 53, 0.35) transparent;
 }

@@ -1,8 +1,9 @@
-# ⚽ FootyLive — Premium Live Sports Streaming Aggregator
+# ⚽ 82 LIVE FOOTBALL — Premium Live Sports Streaming Aggregator
+Powered by the official **Eighty-Two Brand Kit**
 
-FootyLive is a high-performance, ad-free live football streaming aggregator built on **Next.js 16** with **React 19** and **Tailwind CSS v4**. It aggregates live scoreboard metrics, team logistics, and dynamic multi-server stream networks into a premium, glassmorphic client interface.
+82 LIVE FOOTBALL is a high-performance, ad-free live football streaming aggregator built on **Next.js 16** with **React 19** and **Tailwind CSS v4**. It aggregates live scoreboard metrics, team logistics, and dynamic multi-server stream networks into a dark slate navy client interface with Atomic Orange energy.
 
-Designed for low latency and high quality, FootyLive resolves streaming server links on the fly, provides direct `.m3u8` video player fallbacks with client-side HLS rendering, integrates ad-blocker sandboxes, and implements a dashboard to stream multiple matches simultaneously.
+Designed for low latency and high quality, 82 LIVE FOOTBALL resolves streaming server links on the fly, provides direct `.m3u8` video player fallbacks with client-side HLS rendering, integrates ad-blocker sandboxes, and implements a dashboard to stream multiple matches simultaneously.
 
 **🌐 Live Demo: [https://footylive.vercel.app](https://footylive.vercel.app/)**
 
@@ -48,10 +49,10 @@ Designed for low latency and high quality, FootyLive resolves streaming server l
 
 ## 🏗️ Architecture Design & Directory Structure
 
-FootyLive is organized around Next.js App Router patterns, utilizing server-rendered layouts, dynamic client components, and lightweight local caching layers.
+82 LIVE FOOTBALL is organized around Next.js App Router patterns, utilizing server-rendered layouts, dynamic client components, and lightweight local caching layers.
 
 ```
-football-stream-app/
+eighty-two-live-football/
 ├── app/                      # Next.js App Router
 │   ├── api/                  # API endpoints for match data and stream redirection
 │   │   ├── match/[matchId]   # Live scoreboard endpoints
@@ -65,11 +66,12 @@ football-stream-app/
 │   ├── api-hub/              # Developer hub page documenting REST and upstream APIs
 │   ├── watch/[matchId]/      # Individual match details and live player view
 │   ├── multistream/          # Multistream arena grid layout
-│   ├── layout.js             # Sticky header, footer, global centered main layout
+│   ├── layout.js             # Sticky header with animated EightyTwoBadge, footer
 │   ├── loading.js            # Skeleton loader matching page structure
 │   ├── error.js              # Graceful error boundary with retry
 │   └── page.js               # Homepage loading aggregated matches
 ├── components/               # Reusable React components
+│   ├── EightyTwoBadge.tsx    # Official Eighty-Two Animated SVG Badge
 │   ├── StreamPlayer.jsx      # Video controller, sandbox toggle, and HLS injector
 │   ├── LiveScoreboard.jsx    # Real-time score ticker with live-minute calculation
 │   ├── MatchGrid.jsx         # Fixture listings, multi-select search filters, scroll chevrons
@@ -85,7 +87,7 @@ football-stream-app/
 │   ├── providers/            # Strategic Scraping strategies (WatchFooty, CdnLive, StreamedPk)
 │   └── utils/                # Helper files (favorites tracker, Jaro-Winkler team matching)
 ├── public/                   # Static icons, manifest, offline fallbacks
-└── app/globals.css           # Tailwind v4 theme, glassmorphism, animations, scrollbars
+└── app/globals.css           # Tailwind v4 theme, Eighty-Two keyframes, Atomic Orange tokens
 ```
 
 ---
@@ -99,8 +101,8 @@ football-stream-app/
 ### 1. Installation
 Clone the repository and install all dependencies:
 ```bash
-git clone https://github.com/OgBek/footyLive.git
-cd football-stream-app
+git clone https://github.com/ogungbile-hue/EIGHTY-TWO-LIVE-FOOTBALL.git
+cd eighty-two-live-football
 npm install
 ```
 
@@ -146,7 +148,7 @@ npx vitest run lib/utils/matching.test.ts
 
 ## 🛠️ Developer REST API Directory
 
-FootyLive is equipped with public REST API endpoints. Full interactive documentation is available at [`/api-hub`](https://footylive.vercel.app/api-hub).
+82 LIVE FOOTBALL is equipped with public REST API endpoints. Full interactive documentation is available at [`/api-hub`](https://footylive.vercel.app/api-hub).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -162,7 +164,7 @@ FootyLive is equipped with public REST API endpoints. Full interactive documenta
 
 ## 🤝 Open Source Community Guidelines
 
-We welcome contributions from developers, football enthusiasts, and UI/UX designers! Help us make FootyLive the best web sports hub.
+We welcome contributions from developers, football enthusiasts, and UI/UX designers! Help us make 82 LIVE FOOTBALL the best web sports hub.
 
 ### How to Contribute
 1. **Fork** the repository and create your feature branch: `git checkout -b feature/amazing-feature`.
@@ -180,4 +182,4 @@ We welcome contributions from developers, football enthusiasts, and UI/UX design
 
 ## ⚖️ License & Disclaimer
 
-FootyLive is an open-source stream aggregator. It parses public third-party link networks for research and educational purposes. FootyLive does not host, upload, or own any media streams, video channels, or sports network content.
+82 LIVE FOOTBALL is an open-source stream aggregator. It parses public third-party link networks for research and educational purposes. 82 LIVE FOOTBALL does not host, upload, or own any media streams, video channels, or sports network content.

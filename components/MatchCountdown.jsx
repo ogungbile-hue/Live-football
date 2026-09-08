@@ -36,50 +36,50 @@ export default function MatchCountdown({ timestamp, status }) {
 
   if (timeLeft.isSoon) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 px-5 py-4 shadow-md dark:shadow-xl text-center">
-        <span className="text-sm font-bold text-violet-650 dark:text-violet-400 animate-pulse">📢 Match Kickoff: Starting Soon</span>
+      <div className="rounded-xl border border-[#ff6b35]/30 bg-white dark:bg-[#0a0f1c] px-5 py-4 shadow-md text-center">
+        <span className="text-sm font-black text-[#ff6b35] animate-pulse">📢 Match Kickoff: Starting Soon</span>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 backdrop-blur-md px-5 py-4 shadow-md dark:shadow-xl">
+    <div className="rounded-xl border border-slate-200 dark:border-[#1e2e48] bg-white dark:bg-[#0a0f1c]/80 backdrop-blur-md px-5 py-4 shadow-md">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         
         <div className="flex items-center gap-2">
-          <Clock className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
-          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Match Kickoff Countdown</span>
+          <Clock className="h-4.5 w-4.5 text-[#ff6b35]" />
+          <span className="text-sm font-bold text-slate-800 dark:text-slate-200">82 Kickoff Countdown</span>
         </div>
 
         <div className="flex items-center gap-2">
           {timeLeft.days > 0 && (
             <div className="flex items-center">
-              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
+              <div className="bg-slate-100 dark:bg-[#141c2e] border border-slate-200 dark:border-[#1e2e48] px-3 py-1.5 rounded-lg text-sm font-bold text-slate-800 dark:text-white font-mono tabular-nums shadow-inner">
                 {timeLeft.days}
               </div>
-              <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">d</span>
+              <span className="text-[10px] text-slate-400 font-black uppercase ml-1 mr-2">d</span>
             </div>
           )}
           
           <div className="flex items-center">
-            <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
+            <div className="bg-slate-100 dark:bg-[#141c2e] border border-slate-200 dark:border-[#1e2e48] px-3 py-1.5 rounded-lg text-sm font-bold text-slate-800 dark:text-white font-mono tabular-nums shadow-inner">
               {String(timeLeft.hours).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">h</span>
+            <span className="text-[10px] text-slate-400 font-black uppercase ml-1 mr-2">h</span>
           </div>
 
           <div className="flex items-center">
-            <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg text-sm font-bold text-zinc-800 dark:text-white font-mono tabular-nums shadow-inner">
+            <div className="bg-slate-100 dark:bg-[#141c2e] border border-slate-200 dark:border-[#1e2e48] px-3 py-1.5 rounded-lg text-sm font-bold text-slate-800 dark:text-white font-mono tabular-nums shadow-inner">
               {String(timeLeft.minutes).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1 mr-2">m</span>
+            <span className="text-[10px] text-slate-400 font-black uppercase ml-1 mr-2">m</span>
           </div>
 
           <div className="flex items-center">
-            <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 rounded-lg text-sm font-bold text-violet-650 dark:text-violet-400 font-mono tabular-nums shadow-inner ring-1 ring-violet-500/20">
+            <div className="bg-slate-100 dark:bg-[#141c2e] border border-slate-200 dark:border-[#1e2e48] px-3 py-1.5 rounded-lg text-sm font-bold text-[#ff6b35] font-mono tabular-nums shadow-inner ring-1 ring-[#ff6b35]/25">
               {String(timeLeft.seconds).padStart(2, '0')}
             </div>
-            <span className="text-[10px] text-zinc-550 dark:text-zinc-500 font-extrabold uppercase ml-1">s</span>
+            <span className="text-[10px] text-slate-400 font-black uppercase ml-1">s</span>
           </div>
         </div>
 

@@ -16,11 +16,12 @@ import {
   Layers, 
   Share2 
 } from 'lucide-react';
+import EightyTwoBadge from '@/components/EightyTwoBadge';
 
 export default function ApiHubPage() {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [expandedIndex, setExpandedIndex] = useState(null);
-  const origin = 'https://footylive.vercel.app';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3008';
 
   const copyToClipboard = (text, index) => {
     navigator.clipboard.writeText(text);
@@ -31,89 +32,101 @@ export default function ApiHubPage() {
   const localEndpoints = [
     {
       id: 'matches',
-      name: 'Fetch Aggregated Matches',
+      name: 'Fetch Aggregated 82 Matches',
       path: '/api/matches',
       method: 'GET',
-      description: 'Retrieves all active and scheduled football matches aggregated from all scraping providers, sorted dynamically: active live matches first, followed by league priority and kickoff timestamps.',
+      description: 'Retrieves all active and scheduled football matches aggregated from multi-provider streams (Streamed.pk, CDNLive, WatchFooty), sorted dynamically: live fixtures first, followed by league priority and kickoff timestamps.',
       sampleResponse: `{
   "matches": [
     {
-      "id": "4703546",
-      "title": "Arsenal vs Chelsea",
+      "id": "streamed-real-madrid-vs-inter-milan-2594629",
+      "title": "Real Madrid vs Inter Milan",
       "status": "live",
-      "timestamp": 1779321600000,
-      "tournament": "Premier League",
+      "timestamp": 1788894000000,
+      "tournament": "UEFA Champions League",
       "homeTeam": { 
-        "name": "Arsenal", 
-        "badge": "/api/v1/team-logo/456" 
+        "name": "Real Madrid", 
+        "badge": "https://streamed.pk/api/images/proxy/..." 
       },
       "awayTeam": { 
-        "name": "Chelsea", 
-        "badge": "/api/v1/team-logo/789" 
+        "name": "Inter Milan", 
+        "badge": "https://streamed.pk/api/images/proxy/..." 
       },
-      "leagueLogo": "/api/v1/league-logo/123",
-      "homeScore": 2,
-      "awayScore": 1,
-      "currentMinute": "74'"
+      "homeScore": 1,
+      "awayScore": 0,
+      "currentMinute": "68'",
+      "sources": [
+        {
+          "source": "streamed-admin",
+          "id": "ppv-real-madrid-vs-inter-milan",
+          "label": "82 Server 1 (TNT Sports 1)"
+        }
+      ]
     }
   ]
 }`
     },
     {
       id: 'match-details',
-      name: 'Get Match Details',
+      name: 'Get Match Details & Lineups',
       path: '/api/match/[matchId]',
       method: 'GET',
-      description: 'Fetches granular match statistics, venue data, referee metrics, lineups, team formations, and real-time live commentary event streams for a given match ID.',
+      description: 'Fetches granular match statistics, venue telemetry, boxscore metrics, team rosters, and real-time live commentary event streams for a given 82 match ID.',
       sampleResponse: `{
-  "id": "4703546",
-  "title": "Arsenal vs Chelsea",
-  "venue": "Emirates Stadium",
-  "referee": "Michael Oliver",
+  "id": "streamed-real-madrid-vs-inter-milan-2594629",
+  "title": "Real Madrid vs Inter Milan",
+  "venue": "Santiago Bernabéu",
   "status": "live",
-  "homeScore": 2,
-  "awayScore": 1,
+  "homeScore": 1,
+  "awayScore": 0,
   "boxscore": {
-    "possession": { "home": "54%", "away": "46%" },
-    "shots": { "home": 12, "away": 9 },
-    "fouls": { "home": 8, "away": 11 }
+    "possession": { "home": "56%", "away": "44%" },
+    "shots": { "home": 14, "away": 8 },
+    "fouls": { "home": 6, "away": 9 }
   },
   "commentary": [
     {
-      "minute": "74'",
+      "minute": "68'",
       "type": "goal",
-      "text": "GOAL! Arsenal 2, Chelsea 1. Bukayo Saka converts with a brilliant strike."
+      "text": "GOAL! Real Madrid 1, Inter Milan 0. Brilliant conversion inside the penalty box."
     }
   ]
 }`
     },
     {
       id: 'resolve-streams',
-      name: 'Resolve Match Streams',
+      name: 'Resolve 82 Multi-Server Streams',
       path: '/api/streams/[matchId]',
       method: 'GET',
-      description: 'Retrieves the list of active streaming channels (embeds or direct HLS m3u8 playlists) resolving signed redirect routing proxies for security.',
+      description: 'Retrieves all available live stream servers (embed players, direct HLS playlists, and fallback channels) with quality indicators and signed redirect security.',
       sampleResponse: `{
-  "matchTitle": "Arsenal vs Chelsea",
+  "matchTitle": "Real Madrid vs Inter Milan",
   "matchStatus": "live",
   "streams": [
     {
-      "name": "Server 1 HD (English)",
-      "url": "/api/stream-redirect?u=aHR0cHM6Ly9zdHJlYW0ucGsvbGl2ZS8x&expires=1779325200000&sig=f1a2b3...",
+      "name": "82 Server 1 (TNT Sports 1)",
+      "url": "https://embed.st/embed/admin/ppv-real-madrid-vs-inter-milan/1",
       "quality": "HD",
-      "isDirect": false
+      "provider": "streamed",
+      "proxiedUrl": "/api/stream-redirect?u=..."
+    },
+    {
+      "name": "82 Server 2 (CDNLive)",
+      "url": "https://cdnlivetv.tv/api/v1/channels/player/...",
+      "quality": "HD",
+      "provider": "cdnlive"
     }
   ],
-  "defaultUrl": "/api/stream-redirect?u=aHR0cHM6Ly9zdHJlYW0ucGsvbGl2ZS8x&expires=1779325200000&sig=f1a2b3...",
+  "defaultUrl": "https://embed.st/embed/admin/ppv-real-madrid-vs-inter-milan/1",
   "isDirectHls": false
 }`
     },
     {
       id: 'logo-proxies',
-      name: 'Binary Logo Proxy Routes',
+      name: 'Binary Asset Proxy Routes',
       path: '/api/v1/[type]/[id]',
       method: 'GET',
-      description: 'Proxies binary image data for leagues, teams, and posters, resolving CORS limitations. Includes local 24-hour server-side caching. Valid types are: "league-logo", "team-logo", "poster".',
+      description: 'Proxies binary image data for leagues, team badges, and match posters with local 24-hour server caching. Valid types: "league-logo", "team-logo", "poster".',
       sampleResponse: `[Binary Image Stream (image/png or image/jpeg)
 Cache-Control: public, max-age=86400, s-maxage=86400]`
     }
@@ -121,31 +134,31 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
 
   const upstreamApis = [
     {
-      name: 'Streamed.pk API Docs',
-      url: 'https://streamed.pk/docs/streams',
-      badge: 'Upstream Feed',
-      description: 'Public API documentation for Streamed.pk stream networks, which details endpoints for querying live stream playlists and direct streaming channels.',
+      name: 'Streamed.pk Engine',
+      url: 'https://streamed.pk',
+      badge: 'Live Feeds',
+      description: 'Primary streaming aggregator providing multi-language broadcast embeds and high-definition sports video streams.',
     },
     {
-      name: 'CDNLive TV Engine',
-      url: 'https://cdnlivetv.ru/',
-      badge: 'Live Channels',
-      description: 'Comprehensive network for live sports broadcast streams, feeds, and streaming channel registries across multiple networks and regions.',
+      name: 'CDNLive TV Network',
+      url: 'https://cdnlivetv.tv',
+      badge: 'Channels',
+      description: 'Global sports television broadcast feed registry with comprehensive coverage across international football tournaments.',
     },
     {
-      name: 'WatchFooty API Hub',
-      url: 'https://watchfooty.st/en/docs',
-      badge: 'Core Matches',
-      description: 'Developer integration documentation for watchfooty.st. Provides core match configurations, live score commentary, and league standings statistics.',
+      name: 'WatchFooty Statistics',
+      url: 'https://watchfooty.st',
+      badge: 'Telemetry',
+      description: 'Granular match telemetry, live clock synchronizations, real-time boxscores, and comprehensive league database.',
     }
   ];
 
   return (
-    <div className="min-h-screen py-6 animate-fade-in text-zinc-950 dark:text-zinc-50">
+    <div className="min-h-screen py-6 animate-fade-in text-slate-900 dark:text-slate-100">
       
-      {/* Decorative Orbs */}
-      <div className="glow-orb glow-orb-purple w-[300px] h-[300px] top-10 left-10"></div>
-      <div className="glow-orb glow-orb-emerald w-[280px] h-[280px] top-60 right-10"></div>
+      {/* 82 Glow Atmosphere */}
+      <div className="glow-orb glow-orb-orange w-[350px] h-[350px] top-10 left-10" />
+      <div className="glow-orb glow-orb-navy w-[350px] h-[350px] top-60 right-10" />
 
       <div className="relative z-10 space-y-10">
         
@@ -155,87 +168,88 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
             <a 
               href="/" 
               id="back-home-btn"
-              className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/30 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#1e2e48] bg-white dark:bg-[#141c2e] text-slate-700 dark:text-slate-300 hover:text-[#ff6b35] dark:hover:text-[#ff6b35] hover:border-[#ff6b35]/40 hover:shadow-md active:scale-95 transition-all cursor-pointer"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back to Fixtures</span>
+              <ArrowLeft className="h-3.5 w-3.5 text-[#ff6b35]" />
+              <span>Back to 82 Fixtures</span>
             </a>
           </div>
           
-          <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 via-indigo-650 to-emerald-500 bg-clip-text text-transparent dark:from-violet-400 dark:to-emerald-400">
-              API Developer Hub
-            </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-3xl leading-relaxed">
-              Welcome to the FootyLive developer dashboard. Here you can explore our system endpoints, copy code signatures, view data structures, and access upstream streaming metadata providers.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-gradient-to-r from-white via-slate-50 to-orange-50/20 dark:from-[#0a0f1c] dark:via-[#0d1527] dark:to-[#141c2e] border border-slate-200/80 dark:border-[#1e2e48] shadow-md">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 dark:bg-[#ff6b35]/15 border border-orange-200 dark:border-[#ff6b35]/30 px-3 py-0.5 text-xs font-black text-[#ff6b35]">
+                <Zap className="h-3.5 w-3.5 text-[#ff6b35]" />
+                82 DEVELOPER ECOSYSTEM
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                82 <span className="text-[#ff6b35]">API</span> DEVELOPER HUB
+              </h1>
+              <p className="text-sm text-slate-600 dark:text-[#8a96b8] leading-relaxed">
+                Explore 82 LIVE FOOTBALL system endpoints, copy API signatures, inspect data payloads, and integrate streaming telemetry into your applications.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(255,107,53,0.3)]">
+              <EightyTwoBadge size={80} speed={1} />
+            </div>
           </div>
         </div>
 
         {/* Section 1: Developer Playbook / Instructions */}
-        <div className="glass-panel rounded-2xl p-6 md:p-8 space-y-6">
-          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800/80 pb-4">
-            <Terminal className="h-5 w-5 text-violet-500" />
-            <h2 className="text-lg font-bold">Developer Playbook & Instructions</h2>
+        <div className="glass-panel rounded-2xl p-6 md:p-8 space-y-6 border border-slate-200/80 dark:border-[#1e2e48]">
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-[#1e2e48] pb-4">
+            <Terminal className="h-5 w-5 text-[#ff6b35]" />
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">82 Architecture & Developer Playbook</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed text-slate-600 dark:text-[#8a96b8]">
             
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-1.5">
-                  <Shield className="h-4 w-4 text-violet-500" />
-                  1. HMAC Signed Redirect Routing
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-[#ff6b35]" />
+                  1. Multi-Provider Ingestion Engine
                 </h3>
                 <p>
-                  To protect streaming servers from third-party hotlinking and scrape abuses, all resolved stream URLs are passed through a local proxy resolver: <code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-zinc-900 font-mono text-[10px] text-violet-600 dark:text-violet-400">/api/stream-redirect</code>.
-                </p>
-                <p>
-                  This router enforces a cryptographic signature signature verification protocol. The stream URL is base64url encoded, appended with an expiration timestamp, and signed using an HMAC-SHA256 signature generated with the server's secret key (<code className="font-mono">STREAM_SECRET</code>). Requests with expired timestamps or incorrect signatures are instantly blocked (returns 403 Forbidden).
+                  82 LIVE FOOTBALL queries and aggregates live feeds across multiple independent scraping and API networks in real-time, matching team signatures using fuzzy string similarity and prioritizing HD server feeds.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-violet-500" />
-                  2. Cache Revalidation Limits
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-[#ff6b35]" />
+                  2. Cache Revalidation System
                 </h3>
-                <p>
-                  We employ an aggressive client/server caching layer to ensure lightning-fast page loading and protect upstream services:
-                </p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Match Fixtures</strong>: Revalidates every 10 seconds to keep live scores, elapsed match minutes, and game statuses accurately synchronized.</li>
-                  <li><strong>Server Streams</strong>: Revalidates every 15 seconds, ensuring link rotation is fast while preventing heavy concurrent query loads.</li>
-                  <li><strong>Image Binaries</strong>: Team logos, tournament badges, and match posters are cached for 24 hours (86,400 seconds) on client browsers and local server instances.</li>
+                  <li><strong>Match Fixtures</strong>: SWR cache with 15s refresh window to guarantee accurate match minute times and scores.</li>
+                  <li><strong>Stream Channels</strong>: Revalidates every 20 seconds, ensuring working server rotation without flooding origin APIs.</li>
+                  <li><strong>Image Assets</strong>: Team badges and league crests are cached for 24 hours.</li>
                 </ul>
               </div>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-1.5">
-                  <Layers className="h-4 w-4 text-violet-500" />
-                  3. Team Matching & Fuzzy Alignment
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Layers className="h-4 w-4 text-[#ff6b35]" />
+                  3. Eighty-Two Branding
                 </h3>
                 <p>
-                  Matches are aggregated from multiple scraping channels (WatchFooty, CDNLive, etc.) in real-time. Since names differ across networks (e.g., "Manchester United" vs "Man Utd"), the backend leverages a strategy pattern orchestrator:
-                </p>
-                <p>
-                  The engine applies fuzzy Jaro-Winkler string similarity calculations (<code className="px-1 py-0.5 rounded bg-zinc-150 dark:bg-zinc-900 font-mono text-[10px] text-violet-600 dark:text-violet-400">lib/utils/matching.ts</code>). If the similarity score is greater than 0.85, the teams are aligned, and the duplicate match entries are collapsed, creating a single unified match console.
+                  Built on the official <strong>Eighty-Two Brand Kit</strong> with Atomic Orange (<code className="font-mono text-[#ff6b35]">#ff6b35</code>) and Dark Slate Navy (<code className="font-mono text-[#8a96b8]">#141c2e</code>) tokens, providing cybernetic precision and clean aesthetics.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <h3 className="font-bold text-zinc-850 dark:text-zinc-200 flex items-center gap-1.5">
-                  <Cpu className="h-4 w-4 text-violet-500" />
-                  4. Environment Configuration
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Cpu className="h-4 w-4 text-[#ff6b35]" />
+                  4. Environment Setup
                 </h3>
                 <p>
-                  To configure or customize the API Hub backend, developers must declare the following environment variables in their root <code className="font-mono">.env.local</code>:
+                  Configure the backend using the declared keys in <code className="font-mono bg-slate-100 dark:bg-[#141c2e] px-1 py-0.5 rounded text-[#ff6b35]">.env.local</code>:
                 </p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><code className="font-mono">STREAM_SECRET</code>: Encryption key string to sign client media playlists.</li>
-                  <li><code className="font-mono">REDIS_URL</code> & <code className="font-mono">REDIS_TOKEN</code>: Optional Upstash credentials to replicate cache variables.</li>
+                  <li><code className="font-mono">STREAM_SECRET</code>: Cryptographic secret for signing playback URLs.</li>
+                  <li><code className="font-mono">REDIS_URL</code> & <code className="font-mono">REDIS_TOKEN</code>: Optional Upstash Redis endpoint for distributed memory caching.</li>
                 </ul>
               </div>
             </div>
@@ -246,8 +260,8 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
         {/* Section 2: Local Application Endpoints */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <Code className="h-5 w-5 text-violet-500" />
-            <h2 className="text-lg font-bold">Local Endpoint Directory</h2>
+            <Code className="h-5 w-5 text-[#ff6b35]" />
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">82 Endpoint Directory</h2>
           </div>
 
           <div className="grid grid-cols-1 gap-6">
@@ -258,39 +272,39 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
               return (
                 <div 
                   key={endpoint.id}
-                  className="glass-panel rounded-xl p-5 md:p-6 space-y-4 hover:border-zinc-300 dark:hover:border-zinc-800 transition-colors"
+                  className="glass-panel rounded-xl p-5 md:p-6 space-y-4 border border-slate-200/80 dark:border-[#1e2e48] hover:border-[#ff6b35]/40 transition-colors shadow-sm"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded bg-[#ff6b35]/15 text-[#ff6b35] border border-[#ff6b35]/30">
                         {endpoint.method}
                       </span>
-                      <h3 className="font-bold text-sm text-zinc-850 dark:text-zinc-150">
+                      <h3 className="font-black text-sm text-slate-900 dark:text-white">
                         {endpoint.name}
                       </h3>
                     </div>
-                    <code className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                    <code className="text-[11px] font-mono text-[#ff6b35]">
                       {endpoint.path}
                     </code>
                   </div>
 
-                  <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-[#8a96b8] leading-relaxed">
                     {endpoint.description}
                   </p>
 
                   {/* Copy URL Row */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-zinc-100/50 dark:bg-zinc-950/80 border border-zinc-200/50 dark:border-zinc-900/60">
-                    <span className="text-[10px] font-mono text-zinc-400 select-none">URL:</span>
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-[#07090f] border border-slate-200 dark:border-[#1e2e48]">
+                    <span className="text-[10px] font-mono text-slate-400 select-none">URL:</span>
                     <input 
                       type="text" 
                       readOnly 
                       value={fullUrl} 
-                      className="flex-1 bg-transparent outline-none font-mono text-[10px] text-zinc-700 dark:text-zinc-300 overflow-x-auto" 
+                      className="flex-1 bg-transparent outline-none font-mono text-[10px] text-slate-800 dark:text-slate-200 overflow-x-auto" 
                     />
                     <button
                       onClick={() => copyToClipboard(fullUrl, index)}
-                      className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-900 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 active:scale-90 transition-all"
-                      title="Copy absolute URL"
+                      className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-[#141c2e] text-slate-500 hover:text-[#ff6b35] dark:hover:text-[#ff6b35] active:scale-90 transition-all cursor-pointer"
+                      title="Copy URL"
                     >
                       {copiedIndex === index ? (
                         <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -304,18 +318,18 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                   <div className="space-y-2">
                     <button
                       onClick={() => setExpandedIndex(isExpanded ? null : index)}
-                      className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 transition-colors"
+                      className="text-[11px] font-bold text-[#ff6b35] hover:text-[#ff8554] flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <span>{isExpanded ? 'Hide' : 'Show'} Sample Response Payload</span>
                       <ChevronToggle isExpanded={isExpanded} />
                     </button>
 
                     {isExpanded && (
-                      <div className="relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800/80">
+                      <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-[#1e2e48]">
                         <div className="absolute right-2 top-2 z-20">
                           <button
                             onClick={() => copyToClipboard(endpoint.sampleResponse, `payload-${index}`)}
-                            className="p-1.5 rounded bg-zinc-200/40 hover:bg-zinc-200/80 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/80 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+                            className="p-1.5 rounded bg-slate-200/60 hover:bg-slate-200 dark:bg-[#141c2e] dark:hover:bg-[#1a2540] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
                             title="Copy payload"
                           >
                             {copiedIndex === `payload-${index}` ? (
@@ -325,7 +339,7 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                             )}
                           </button>
                         </div>
-                        <pre className="p-4 bg-zinc-950 text-zinc-200 font-mono text-[10px] overflow-x-auto max-h-[250px] leading-relaxed">
+                        <pre className="p-4 bg-[#07090f] text-slate-200 font-mono text-[10px] overflow-x-auto max-h-[250px] leading-relaxed">
                           {endpoint.sampleResponse}
                         </pre>
                       </div>
@@ -337,11 +351,11 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
           </div>
         </div>
 
-        {/* Section 3: More APIs - Upstream External Links */}
+        {/* Section 3: Upstream Feeds */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <Share2 className="h-5 w-5 text-violet-500" />
-            <h2 className="text-lg font-bold">Third-Party Upstream Stream APIs</h2>
+            <Share2 className="h-5 w-5 text-[#ff6b35]" />
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Upstream Streaming Providers</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -351,25 +365,25 @@ Cache-Control: public, max-age=86400, s-maxage=86400]`
                 href={api.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="glass-panel glass-panel-hover rounded-xl p-5 block space-y-3 cursor-pointer group"
+                className="glass-panel glass-panel-hover rounded-xl p-5 block space-y-3 cursor-pointer group border border-slate-200/80 dark:border-[#1e2e48]"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-orange-100 dark:bg-[#ff6b35]/15 text-[#ff6b35] border border-orange-200 dark:border-[#ff6b35]/30">
                     {api.badge}
                   </span>
-                  <ExternalLink className="h-3.5 w-3.5 text-zinc-400 group-hover:text-violet-500 transition-colors" />
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#ff6b35] transition-colors" />
                 </div>
                 
-                <h3 className="font-bold text-sm text-zinc-850 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                <h3 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-[#ff6b35] transition-colors">
                   {api.name}
                 </h3>
                 
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-[#8a96b8] leading-relaxed">
                   {api.description}
                 </p>
                 
-                <div className="text-[10px] font-mono text-violet-600 dark:text-violet-400 group-hover:underline flex items-center gap-1">
-                  <span>Visit Documentation</span>
+                <div className="text-[10px] font-mono text-[#ff6b35] group-hover:underline flex items-center gap-1">
+                  <span>Visit Upstream Site</span>
                   <ArrowUpRight className="h-3 w-3" />
                 </div>
               </a>

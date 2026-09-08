@@ -1,12 +1,13 @@
 import logger from '../logger';
 
-export async function fetchWithTimeout(url: string, timeoutMs: number): Promise<any> {
+export async function fetchWithTimeout(url: string, timeoutMs: number = 8000): Promise<any> {
+  const effectiveTimeout = Math.max(timeoutMs, 8000);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
   try {
     const res = await fetch(url, { 
       signal: controller.signal, 
-      next: { revalidate: 30 },
+      cache: 'no-store',
       headers: { 'Accept': 'application/json' }
     } as any);
     if (res.status === 429) {

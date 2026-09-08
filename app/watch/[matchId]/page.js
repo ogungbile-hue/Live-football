@@ -3,6 +3,7 @@ import StreamPlayer from '@/components/StreamPlayer';
 import MatchCountdown from '@/components/MatchCountdown';
 import MatchStatsSection from '@/components/MatchStatsSection';
 import LiveScoreboard from '@/components/LiveScoreboard';
+import EightyTwoBadge from '@/components/EightyTwoBadge';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 
@@ -20,8 +21,8 @@ export default async function WatchPage({ params, searchParams }) {
   let stats = null;
 
   const userFacingErrors = {
-    'No streams available from any provider': 'No streams are available for this match right now.',
-    'Match not found': 'This match could not be found. It may have been removed.',
+    'No streams available from any provider': 'No 82 streams are available for this fixture right now.',
+    'Match not found': 'This match could not be found. It may have been completed or removed.',
   };
 
   try {
@@ -78,10 +79,10 @@ export default async function WatchPage({ params, searchParams }) {
       <div>
         <Link
           href={`/?tab=${backTab}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-zinc-950/70 border border-zinc-850 px-3.5 py-1.5 text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 hover:shadow-md transition-all group"
+          className="inline-flex items-center gap-2 rounded-lg bg-white/80 dark:bg-[#141c2e]/80 border border-slate-200 dark:border-[#1e2e48] px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-[#ff6b35] dark:hover:text-[#ff6b35] hover:border-[#ff6b35]/40 hover:shadow-md transition-all group"
         >
-          <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
-          Back to Fixtures
+          <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-1 transition-transform text-[#ff6b35]" />
+          Back to 82 Fixtures
         </Link>
       </div>
 
@@ -109,16 +110,16 @@ export default async function WatchPage({ params, searchParams }) {
 
       {/* Special notifications banners */}
       {match.status === 'live' && match.homeScore !== undefined && match.currentMinuteNumber >= 90 && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-center shadow-md">
-          <p className="text-xs font-bold text-amber-400 uppercase tracking-widest">⚠️ Full Time Completed</p>
-          <p className="mt-0.5 text-xs text-zinc-500">The fixture has finished. Streams may terminate soon.</p>
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center shadow-md">
+          <p className="text-xs font-black text-amber-400 uppercase tracking-widest">⚠️ Full Time Completed</p>
+          <p className="mt-0.5 text-xs text-slate-400">The fixture has finished. Streams may terminate soon.</p>
         </div>
       )}
 
       {match.status === 'live' && match.homeScore !== undefined && match.currentMinuteNumber === 45 && (
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-center shadow-md">
-          <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">⚽ Halftime Interval</p>
-          <p className="mt-0.5 text-xs text-zinc-500">Teams are in the locker room. The live stream will return shortly.</p>
+        <div className="rounded-xl border border-[#ff6b35]/30 bg-[#ff6b35]/10 px-4 py-3 text-center shadow-md">
+          <p className="text-xs font-black text-[#ff6b35] uppercase tracking-widest">⚽ Halftime Interval</p>
+          <p className="mt-0.5 text-xs text-slate-400">Teams are in the locker room. The 82 live stream will return shortly.</p>
         </div>
       )}
 
@@ -128,20 +129,18 @@ export default async function WatchPage({ params, searchParams }) {
       ) : channels.length > 0 ? (
         <StreamPlayer streamUrl={streamUrl} channels={channels} matchTitle={match.title} matchStatus={match.status} />
       ) : (
-        <div className="flex aspect-video items-center justify-center rounded-2xl border border-zinc-800 bg-[#060609] p-6 shadow-2xl">
-          <div className="text-center space-y-3 max-w-xs">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800">
-              <RefreshCw className="h-5 w-5 text-zinc-500 animate-spin" />
-            </div>
+        <div className="flex aspect-video items-center justify-center rounded-2xl border border-slate-200 dark:border-[#1e2e48] bg-[#07090f] p-6 shadow-2xl">
+          <div className="text-center space-y-3 max-w-xs flex flex-col items-center">
+            <EightyTwoBadge size={56} speed={1.2} />
             <div>
-              <p className="text-sm font-bold text-white">Stream is Offline</p>
+              <p className="text-sm font-bold text-white">82 Stream is Offline</p>
               {errorMsg ? (
-                <p className="mt-1 text-xs text-zinc-500">{errorMsg}</p>
+                <p className="mt-1 text-xs text-slate-400">{errorMsg}</p>
               ) : (
-                <p className="mt-1 text-xs text-zinc-500">The aggregation engine is resolving stream routes.</p>
+                <p className="mt-1 text-xs text-slate-400">The 82 engine is resolving stream feeds.</p>
               )}
             </div>
-            <p className="text-[10px] text-zinc-650">Please reload the page or check back near kick-off.</p>
+            <p className="text-[10px] text-slate-500">Please reload the page or check back near kick-off.</p>
           </div>
         </div>
       )}
