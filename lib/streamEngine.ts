@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import logger from './logger';
 import { Match, Channel } from './types';
-import { WatchFootyProvider, getMatchDetails as getWfMatchDetails, getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
+import { getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { StreamedPkProvider } from './providers/streamedPk';
 import { getCacheManager } from './cache/cacheManager';
@@ -139,37 +139,30 @@ export async function resolveAllStreams(
       }
     }
 
-    // If preFetchedMatch has fallback channels, include them
-    if (preFetchedMatch?.fallbackChannels) {
-      for (const fc of preFetchedMatch.fallbackChannels) {
-        if (fc.url && !allServers.some(s => s.url === fc.url)) {
-          allServers.push({
-            name: fc.name || 'Fallback Server',
-            url: fc.url,
-            provider: 'direct',
-            quality: 'HD'
-          });
-        }
-      }
-    }
+    // Filter out any idle, dead, or watchfooty servers
+    const filteredServers = allServers.filter(s => 
+      s.url && 
+      !s.url.toLowerCase().includes('watchfooty') && 
+      !s.name.toLowerCase().includes('watchfooty')
+    );
 
-    if (allServers.length === 0) {
+    if (filteredServers.length === 0) {
       throw new Error('No streams available from any provider');
     }
 
     const qualityOrder: Record<string, number> = { 'FHD': 0, 'HD': 0, '1080p': 0, '720p': 1, 'SD': 2 };
-    allServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2));
+    filteredServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2));
 
     const seenUrls = new Set<string>();
     const uniqueServers: Channel[] = [];
     let serverIndex = 1;
 
-    for (const server of allServers) {
+    for (const server of filteredServers) {
       if (server.url && !seenUrls.has(server.url)) {
         seenUrls.add(server.url);
         uniqueServers.push({
           ...server,
-          name: server.name || `Server ${serverIndex++}`,
+          name: server.name || `82 Server ${serverIndex++}`,
           proxiedUrl: getStreamRedirectUrl(server.url),
         });
       }
@@ -181,5 +174,5 @@ export async function resolveAllStreams(
       channels: uniqueServers,
       serverCount: uniqueServers.length,
     };
-  }, 20);
+  }, 10);
 }

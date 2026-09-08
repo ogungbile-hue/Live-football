@@ -24,8 +24,19 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
   const playerRef = useRef(null);
   const hlsInstanceRef = useRef(null);
 
-  const allChannels = channels && channels.length > 0 ? channels : [{ name: '82 Server 1', url: streamUrl, proxiedUrl: streamUrl }];
-  const currentUrl = allChannels[activeChannel]?.url || allChannels[activeChannel]?.proxiedUrl || streamUrl;
+  const validChannels = (channels || []).filter(ch => 
+    ch && 
+    ch.url && 
+    !ch.url.toLowerCase().includes('watchfooty') && 
+    !ch.name?.toLowerCase().includes('watchfooty')
+  );
+
+  const allChannels = validChannels.length > 0 
+    ? validChannels 
+    : (streamUrl && !streamUrl.toLowerCase().includes('watchfooty') 
+        ? [{ name: '82 Server 1', url: streamUrl, proxiedUrl: streamUrl }] 
+        : []);
+  const currentUrl = allChannels[activeChannel]?.url || allChannels[activeChannel]?.proxiedUrl || (streamUrl && !streamUrl.toLowerCase().includes('watchfooty') ? streamUrl : '');
 
   // Auto-detect direct stream sources like .m3u8, .mpd, .mp4
   const isDirectHls = currentUrl && (
