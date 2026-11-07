@@ -4,6 +4,7 @@ import { Match, Channel } from './types';
 import { getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
 import { CdnLiveProvider } from './providers/cdnLive';
 import { SportsDataProvider } from './providers/sportsData';
+import { enrichMatchesWithLiveScores } from './providers/espnScores';
 import { getCacheManager } from './cache/cacheManager';
 import { teamsMatch } from './utils/matching';
 
@@ -81,19 +82,38 @@ export async function getMatches(): Promise<Match[]> {
       mergedList.push(base);
     }
 
-    // Sort: Live matches first, then matches with available sources/streams, then priority, then timestamp
-    mergedList.sort((a, b) => {
+    // Enrich with authoritative real-time livescores, accurate clocks and verified status
+    const enrichedList = await enrichMatchesWithLiveScores(mergedList);
+
+    // Save full list (including finished) to cache for direct match lookup
+    await cache.set('all_matches_full', enrichedList, 20);
+
+    // Filter for active fixtures (live and upcoming) for listings
+    const activeMatches = enrichedList.filter(m => m.status === 'live' || m.status === 'upcoming');
+
+    // Sort: Live matches first (by prestige priority, then streams, then kickoff), then upcoming (by kickoff, then priority)
+    activeMatches.sort((a, b) => {
       if (a.status === 'live' && b.status !== 'live') return -1;
       if (b.status === 'live' && a.status !== 'live') return 1;
-      const aHasStreams = (a.sources?.length || 0) > 0 ? 0 : 1;
-      const bHasStreams = (b.sources?.length || 0) > 0 ? 0 : 1;
-      if (aHasStreams !== bHasStreams) return aHasStreams - bHasStreams;
+
+      if (a.status === 'live' && b.status === 'live') {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        const aHasStreams = (a.sources?.length || 0) > 0 ? 0 : 1;
+        const bHasStreams = (b.sources?.length || 0) > 0 ? 0 : 1;
+        if (aHasStreams !== bHasStreams) return aHasStreams - bHasStreams;
+        return a.timestamp - b.timestamp;
+      }
+
+      // Upcoming fixtures
+      if (Math.abs(a.timestamp - b.timestamp) > 30 * 60 * 1000) {
+        return a.timestamp - b.timestamp;
+      }
       if (a.priority !== b.priority) return a.priority - b.priority;
       return a.timestamp - b.timestamp;
     });
 
-    return mergedList;
-  }, 15);
+    return activeMatches;
+  }, 12);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
@@ -102,8 +122,11 @@ export async function getLiveMatches(): Promise<Match[]> {
 }
 
 export async function getMatchDetails(matchId: string): Promise<Match | null> {
-  const matches = await getMatches();
-  const cleanId = matchId.replace(/^(streamed-|cdnlive-|sportsdata-)/, '');
+  const cache = getCacheManager();
+  const fullList = await cache.get<Match[]>('all_matches_full');
+  const matches = fullList && fullList.length > 0 ? fullList : await getMatches();
+
+  const cleanId = matchId.replace(/^(streamed-|cdnlive-|sportsdata-|espn-)/, '');
   const found = matches.find(m => 
     m.id === matchId || 
     m.id === cleanId || 

@@ -172,17 +172,30 @@ export function getCountryForLeague(leagueName: string): string {
 export function normalizeTeamName(name: string): string {
   if (!name) return '';
   const lower = name.toLowerCase().trim();
-  let cleaned = lower
+  const stripped = lower
     .replace(/\b(fc|cf|sc|ac|afc|ssc|ud|cd|ec|rc|assoc|atletico|atlético)\b/g, '')
     .replace(/\b(team|club|real|sport|sporting|racing|race|union|united|city)\b/g, '')
     .replace(/['´`]/g, '')
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return cleaned;
+
+  if (stripped.length > 0) return stripped;
+
+  return lower
+    .replace(/['´`]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function extractTeamNames(title: string): { home: string; away: string } {
+  // Support American / ESPN format: "Away at Home" or "Away @ Home"
+  const atParts = title.split(/\s+at\s+|\s+@\s+/i);
+  if (atParts.length === 2) {
+    return { home: atParts[1].trim(), away: atParts[0].trim() };
+  }
+
   const parts = title.split(/\s+vs\s+|\s+-\s+|\s+x\s+/i);
   if (parts.length >= 2) {
     return { home: parts[0].trim(), away: parts[1].trim() };
@@ -266,4 +279,111 @@ export function teamsMatch(title1: string, title2: string): boolean {
   const bestScore = homeScore + awayScore;
 
   return bestScore >= 2.0 && homeScore >= 0.5 && awayScore >= 0.5;
+}
+
+export interface NormalizedTournament {
+  name: string;
+  logo: string;
+  country: string;
+  priority: number;
+}
+
+const TOURNAMENT_RULES: Array<{
+  pattern: RegExp;
+  name: string;
+  logo: string;
+  country: string;
+  priority: number;
+}> = [
+  // Specific / Multi-word Leagues FIRST
+  { pattern: /champions league|uefa champions/i, name: 'UEFA Champions League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png', country: 'Europe', priority: 0 },
+  { pattern: /europa league|uefa europa/i, name: 'UEFA Europa League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png', country: 'Europe', priority: 1 },
+  { pattern: /conference league|uefa conference/i, name: 'UEFA Conference League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2402.png', country: 'Europe', priority: 2 },
+  { pattern: /copa libertadores/i, name: 'Copa Libertadores', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2664.png', country: 'South America', priority: 1 },
+  { pattern: /copa sudamericana/i, name: 'Copa Sudamericana', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2665.png', country: 'South America', priority: 2 },
+
+  // Specific Country Premier Leagues BEFORE generic Premier League
+  { pattern: /russian premier/i, name: 'Russian Premier League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2308.png', country: 'Russia', priority: 4 },
+  { pattern: /south africa|betway premiership/i, name: 'South African Premiership', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2327.png', country: 'South Africa', priority: 4 },
+  { pattern: /scottish premiership|scottish premier/i, name: 'Scottish Premiership', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/45.png', country: 'Scotland', priority: 3 },
+  { pattern: /indian super league|\bisl\b/i, name: 'Indian Super League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2329.png', country: 'India', priority: 4 },
+  { pattern: /canadian premier/i, name: 'Canadian Premier League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2328.png', country: 'Canada', priority: 4 },
+  { pattern: /kenya.*premier/i, name: 'Kenya Premier League', logo: '', country: 'Kenya', priority: 4 },
+  { pattern: /women'?s super league|wsl/i, name: "Women's Super League", logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2416.png', country: 'England', priority: 3 },
+
+  // English Leagues
+  { pattern: /english premier|premier league|\bepl\b/i, name: 'Premier League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png', country: 'England', priority: 0 },
+  { pattern: /championship|league championship/i, name: 'Championship', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/24.png', country: 'England', priority: 2 },
+  { pattern: /fa cup|english fa cup/i, name: 'FA Cup', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/27.png', country: 'England', priority: 2 },
+  { pattern: /carabao cup|league cup|efl cup/i, name: 'Carabao Cup', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/26.png', country: 'England', priority: 3 },
+
+  // Spanish Leagues
+  { pattern: /laliga 2|la liga 2|segunda/i, name: 'LaLiga 2', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/16.png', country: 'Spain', priority: 3 },
+  { pattern: /liga f|moeve/i, name: 'Liga F', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2418.png', country: 'Spain', priority: 4 },
+  { pattern: /laliga|la liga|primera divisi/i, name: 'LaLiga', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png', country: 'Spain', priority: 1 },
+  { pattern: /copa del rey/i, name: 'Copa del Rey', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/80.png', country: 'Spain', priority: 3 },
+
+  // German Leagues
+  { pattern: /2\. bundesliga|2 bundesliga/i, name: '2. Bundesliga', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png', country: 'Germany', priority: 3 },
+  { pattern: /bundesliga/i, name: 'Bundesliga', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png', country: 'Germany', priority: 1 },
+  { pattern: /dfb.?pokal/i, name: 'DFB-Pokal', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/81.png', country: 'Germany', priority: 3 },
+
+  // Italian Leagues
+  { pattern: /serie a women/i, name: 'Serie A Women', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png', country: 'Italy', priority: 4 },
+  { pattern: /serie b/i, name: 'Serie B', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/13.png', country: 'Italy', priority: 3 },
+  { pattern: /serie a/i, name: 'Serie A', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png', country: 'Italy', priority: 1 },
+  { pattern: /coppa italia/i, name: 'Coppa Italia', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/79.png', country: 'Italy', priority: 3 },
+
+  // French Leagues
+  { pattern: /ligue 2/i, name: 'Ligue 2', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/8.png', country: 'France', priority: 3 },
+  { pattern: /ligue 1/i, name: 'Ligue 1', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png', country: 'France', priority: 1 },
+
+  // Other Top European Leagues
+  { pattern: /eredivisie|vriendenloterij/i, name: 'Eredivisie', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/11.png', country: 'Netherlands', priority: 2 },
+  { pattern: /liga portugal|primeira liga/i, name: 'Liga Portugal', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/14.png', country: 'Portugal', priority: 2 },
+  { pattern: /s[uü]per lig|trendyol/i, name: 'Süper Lig', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/18.png', country: 'Turkey', priority: 2 },
+  { pattern: /ekstraklasa/i, name: 'Ekstraklasa', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2312.png', country: 'Poland', priority: 4 },
+  { pattern: /allsvenskan/i, name: 'Allsvenskan', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2314.png', country: 'Sweden', priority: 4 },
+  { pattern: /eliteserien/i, name: 'Eliteserien', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2316.png', country: 'Norway', priority: 4 },
+
+  // Americas & Asia & Oceania
+  { pattern: /saudi pro league|saudi league/i, name: 'Saudi Pro League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2324.png', country: 'Saudi Arabia', priority: 3 },
+  { pattern: /major league soccer|\bmls\b/i, name: 'MLS', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/19.png', country: 'USA', priority: 3 },
+  { pattern: /nwsl/i, name: 'NWSL', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2417.png', country: 'USA', priority: 4 },
+  { pattern: /brasileir[aã]o|brasileiro/i, name: 'Brasileirão', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png', country: 'Brazil', priority: 3 },
+  { pattern: /copa do brasil/i, name: 'Copa do Brasil', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png', country: 'Brazil', priority: 3 },
+  { pattern: /liga mx/i, name: 'Liga MX', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/22.png', country: 'Mexico', priority: 3 },
+  { pattern: /liga profesional/i, name: 'Liga Profesional', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1.png', country: 'Argentina', priority: 3 },
+  { pattern: /primera a/i, name: 'Primera A', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png', country: 'Colombia', priority: 4 },
+  { pattern: /a-league women/i, name: 'A-League Women', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1308.png', country: 'Australia', priority: 4 },
+  { pattern: /a-league/i, name: 'A-League', logo: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1308.png', country: 'Australia', priority: 4 },
+];
+
+export function normalizeTournament(rawTournament: string, fallbackLogo?: string): NormalizedTournament {
+  if (!rawTournament) {
+    return { name: 'Football', logo: fallbackLogo || '', country: 'World', priority: 5 };
+  }
+
+  for (const rule of TOURNAMENT_RULES) {
+    if (rule.pattern.test(rawTournament)) {
+      return {
+        name: rule.name,
+        logo: rule.logo || fallbackLogo || '',
+        country: rule.country,
+        priority: rule.priority,
+      };
+    }
+  }
+
+  // Clean generic sponsor junk if present
+  const cleaned = rawTournament
+    .replace(/\b(Trendyol|VriendenLoterij|Betway|Betclic|Moeve|Te Apuesto)\b/gi, '')
+    .trim();
+
+  return {
+    name: cleaned || rawTournament,
+    logo: fallbackLogo || '',
+    country: getCountryForLeague(rawTournament) || 'World',
+    priority: getLeaguePriority(rawTournament),
+  };
 }

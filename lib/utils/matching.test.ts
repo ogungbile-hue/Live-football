@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeTeamName, teamSimilarity, teamsMatch, getLeaguePriority, getCountryForLeague } from './matching';
+import { normalizeTeamName, teamSimilarity, teamsMatch, getLeaguePriority, getCountryForLeague, normalizeTournament } from './matching';
 
 describe('Team Name Normalization', () => {
   it('should remove common team suffixes and clean strings', () => {
@@ -43,6 +43,32 @@ describe('Teams Matching Algorithm', () => {
 
   it('should reject different games', () => {
     expect(teamsMatch('Liverpool vs Arsenal', 'Manchester United vs Chelsea')).toBe(false);
+  });
+
+  it('should match American / ESPN format with at / @', () => {
+    expect(teamsMatch('Leeds United Vs Tottenham Hotspur', 'Tottenham Hotspur at Leeds United')).toBe(true);
+    expect(teamsMatch('Málaga CF Vs Real Racing Club', 'Racing Santander at Málaga')).toBe(true);
+  });
+});
+
+describe('Tournament Normalization', () => {
+  it('should normalize sponsor-polluted tournament names', () => {
+    expect(normalizeTournament('Trendyol Süper Lig').name).toBe('Süper Lig');
+    expect(normalizeTournament('VriendenLoterij Eredivisie').name).toBe('Eredivisie');
+    expect(normalizeTournament('Liga Portugal Betclic').name).toBe('Liga Portugal');
+    expect(normalizeTournament('English Premier League').name).toBe('Premier League');
+    expect(normalizeTournament('Spanish LALIGA').name).toBe('LaLiga');
+    expect(normalizeTournament('German Bundesliga').name).toBe('Bundesliga');
+  });
+
+  it('should assign valid logos and countries to tournaments', () => {
+    const pl = normalizeTournament('English Premier League');
+    expect(pl.logo).toContain('espncdn.com');
+    expect(pl.country).toBe('England');
+
+    const ucl = normalizeTournament('UEFA Champions League');
+    expect(ucl.priority).toBe(0);
+    expect(ucl.logo).toContain('espncdn.com');
   });
 });
 

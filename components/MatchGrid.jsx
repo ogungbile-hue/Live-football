@@ -41,56 +41,36 @@ export default function MatchGrid({ matches, defaultTab }) {
     };
   }, []);
 
-  const enrichedMatches = useMemo(() => {
-    return matches.map(m => {
-      if (m.status === 'upcoming') {
-        const now = Date.now();
-        const kickoffTime = m.timestamp ? new Date(m.timestamp).getTime() : 0;
-        const diffMinutes = kickoffTime ? Math.floor((now - kickoffTime) / 60000) : -1;
-        // Promote to live if kickoff time has arrived/passed and less than 135 mins have passed
-        if (kickoffTime && diffMinutes >= 0 && diffMinutes < 135) {
-          let currentMinuteNumber = m.currentMinuteNumber || 0;
-          let currentMinute = m.currentMinute || '';
-          
-          if (diffMinutes < 45) {
-            currentMinuteNumber = diffMinutes;
-            currentMinute = `${diffMinutes}'`;
-          } else if (diffMinutes >= 45 && diffMinutes < 60) {
-            currentMinuteNumber = 45;
-            currentMinute = 'HT';
-          } else if (diffMinutes >= 60 && diffMinutes < 105) {
-            currentMinuteNumber = diffMinutes - 15;
-            currentMinute = `${diffMinutes - 15}'`;
-          } else {
-            currentMinuteNumber = 90;
-            currentMinute = '90+';
-          }
-
-          return {
-            ...m,
-            status: 'live',
-            currentMinute,
-            currentMinuteNumber,
-          };
-        }
-      }
-      return m;
-    });
-  }, [matches]);
-
-  const live = useMemo(() => enrichedMatches.filter(m => m.status === 'live'), [enrichedMatches]);
-  const upcoming = useMemo(() => enrichedMatches.filter(m => m.status === 'upcoming'), [enrichedMatches]);
+  const live = useMemo(() => matches.filter(m => m.status === 'live'), [matches]);
+  const upcoming = useMemo(() => matches.filter(m => m.status === 'upcoming'), [matches]);
 
   const baseMatches = tab === 'upcoming' ? upcoming : live;
 
   const leaguesWithLogos = useMemo(() => {
     const leagueMap = new Map();
     for (const m of baseMatches) {
-      if (m.tournament && !leagueMap.has(m.tournament)) {
-        leagueMap.set(m.tournament, { name: m.tournament, logo: m.leagueLogo || '' });
+      if (m.tournament) {
+        const existing = leagueMap.get(m.tournament);
+        if (!existing) {
+          leagueMap.set(m.tournament, {
+            name: m.tournament,
+            logo: m.leagueLogo || '',
+            priority: m.priority ?? 5,
+            count: 1,
+          });
+        } else {
+          existing.count++;
+          if (!existing.logo && m.leagueLogo) existing.logo = m.leagueLogo;
+        }
       }
     }
-    return Array.from(leagueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Sort leagues by prestige priority (Premier League, LaLiga, Serie A, Champions League first),
+    // then by number of matches (descending), then alphabetically
+    return Array.from(leagueMap.values()).sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    });
   }, [baseMatches]);
 
   // Synchronize selection: remove any selected league that is no longer active in the current tab
@@ -179,7 +159,7 @@ export default function MatchGrid({ matches, defaultTab }) {
         {/* Sliding Tabs */}
         <div className="flex rounded-lg bg-slate-200/70 dark:bg-[#07090f] p-1 border border-slate-300/60 dark:border-[#1e2e48] max-w-xs shrink-0">
           <button
-            onClick={() => setTab('live')}
+            onClick={() => { setTab('live'); setSelectedLeagues([]); }}
             className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'live'
                 ? 'bg-gradient-to-r from-[#ff6b35] to-[#e0531f] text-white shadow-md shadow-[#ff6b35]/25 scale-[1.02]'
@@ -190,7 +170,7 @@ export default function MatchGrid({ matches, defaultTab }) {
             Live Now ({live.length})
           </button>
           <button
-            onClick={() => setTab('upcoming')}
+            onClick={() => { setTab('upcoming'); setSelectedLeagues([]); }}
             className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
               tab === 'upcoming'
                 ? 'bg-gradient-to-r from-[#ff6b35] to-[#e0531f] text-white shadow-md shadow-[#ff6b35]/25 scale-[1.02]'
