@@ -39,6 +39,17 @@ export default async function WatchPage({ params, searchParams }) {
   } catch (err) {
     errorMsg = userFacingErrors[err.message] || 'Unable to load this match. Please try again.';
     match = await getMatchDetails(matchId);
+    if (match?.sources && match.sources.length > 0) {
+      channels = match.sources.map((s, idx) => ({
+        name: s.label || `82 Server ${idx + 1}`,
+        url: s.url,
+        quality: s.quality || 'HD',
+        drm: s.drm,
+        headers: s.headers,
+      }));
+      streamUrl = channels[0]?.url;
+      errorMsg = null;
+    }
   }
 
   if (!match) {

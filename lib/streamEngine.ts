@@ -3,7 +3,7 @@ import logger from './logger';
 import { Match, Channel } from './types';
 import { getMatchStats, getLeagues, getTopTeams } from './providers/watchFooty';
 import { CdnLiveProvider } from './providers/cdnLive';
-import { StreamedPkProvider } from './providers/streamedPk';
+import { SportsDataProvider } from './providers/sportsData';
 import { getCacheManager } from './cache/cacheManager';
 import { teamsMatch } from './utils/matching';
 
@@ -12,7 +12,7 @@ const SECRET_KEY = process.env.STREAM_SECRET || 'default_stream_hmac_secret_key_
 export { getMatchStats, getLeagues, getTopTeams };
 
 const providers = [
-  new StreamedPkProvider(),
+  new SportsDataProvider(),
   new CdnLiveProvider(),
 ];
 
@@ -103,8 +103,13 @@ export async function getLiveMatches(): Promise<Match[]> {
 
 export async function getMatchDetails(matchId: string): Promise<Match | null> {
   const matches = await getMatches();
-  const cleanId = matchId.replace(/^(streamed-|cdnlive-)/, '');
-  const found = matches.find(m => m.id === matchId || m.id === cleanId || m.id.endsWith(cleanId));
+  const cleanId = matchId.replace(/^(streamed-|cdnlive-|sportsdata-)/, '');
+  const found = matches.find(m => 
+    m.id === matchId || 
+    m.id === cleanId || 
+    m.id.endsWith(cleanId) ||
+    m.id.includes(cleanId)
+  );
   if (found) return found;
 
   return null;
@@ -151,7 +156,12 @@ export async function resolveAllStreams(
     }
 
     const qualityOrder: Record<string, number> = { 'FHD': 0, 'HD': 0, '1080p': 0, '720p': 1, 'SD': 2 };
-    filteredServers.sort((a, b) => (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2));
+    filteredServers.sort((a, b) => {
+      const aHls = (a.url || '').includes('.m3u8') ? 0 : 1;
+      const bHls = (b.url || '').includes('.m3u8') ? 0 : 1;
+      if (aHls !== bHls) return aHls - bHls;
+      return (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2);
+    });
 
     const seenUrls = new Set<string>();
     const uniqueServers: Channel[] = [];

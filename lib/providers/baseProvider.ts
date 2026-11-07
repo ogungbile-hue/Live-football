@@ -15,7 +15,12 @@ export async function fetchWithTimeout(url: string, timeoutMs: number = 8000): P
       return [];
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Invalid JSON response: ${text.slice(0, 60)}`);
+    }
   } finally {
     clearTimeout(timeoutId);
   }

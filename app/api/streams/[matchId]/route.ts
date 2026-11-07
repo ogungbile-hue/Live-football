@@ -27,6 +27,24 @@ export async function GET(
       isDirectHls: resolved.proxiedUrl.includes('.m3u8') || resolved.proxiedUrl.includes('.mpd') || resolved.proxiedUrl.includes('.mp4')
     });
   } catch (err: any) {
+    const fallbackMatch = await getMatchDetails(matchId);
+    if (fallbackMatch?.sources && fallbackMatch.sources.length > 0) {
+      const fallbackChannels = fallbackMatch.sources.map((s, idx) => ({
+        name: s.label || `82 Server ${idx + 1}`,
+        url: s.url,
+        proxiedUrl: s.url,
+        quality: s.quality || 'HD',
+        drm: s.drm,
+        headers: s.headers,
+      }));
+      return NextResponse.json({
+        matchTitle: fallbackMatch.title,
+        matchStatus: fallbackMatch.status,
+        streams: fallbackChannels,
+        defaultUrl: fallbackChannels[0].url,
+        isDirectHls: true,
+      });
+    }
     return NextResponse.json(
       { error: 'Failed to resolve stream routes: ' + err.message },
       { status: 500 }

@@ -13,6 +13,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
   
   // Custom video state hooks
   const [hlsLoaded, setHlsLoaded] = useState(false);
+  const [shakaLoaded, setShakaLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
@@ -23,6 +24,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
   const videoRef = useRef(null);
   const playerRef = useRef(null);
   const hlsInstanceRef = useRef(null);
+  const shakaInstanceRef = useRef(null);
+  const tryNextSourceRef = useRef(null);
 
   const validChannels = (channels || []).filter(ch => 
     ch && 
@@ -36,15 +39,20 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
     : (streamUrl && !streamUrl.toLowerCase().includes('watchfooty') 
         ? [{ name: '82 Server 1', url: streamUrl, proxiedUrl: streamUrl }] 
         : []);
-  const currentUrl = allChannels[activeChannel]?.url || allChannels[activeChannel]?.proxiedUrl || (streamUrl && !streamUrl.toLowerCase().includes('watchfooty') ? streamUrl : '');
 
-  // Auto-detect direct stream sources like .m3u8, .mpd, .mp4
-  const isDirectHls = currentUrl && (
-    currentUrl.includes('.m3u8') || 
-    currentUrl.includes('.mpd') || 
-    currentUrl.includes('/hls/') || 
-    currentUrl.includes('.mp4')
-  );
+  const currentChannel = allChannels[activeChannel] || null;
+  const currentUrl = currentChannel?.url || currentChannel?.proxiedUrl || (streamUrl && !streamUrl.toLowerCase().includes('watchfooty') ? streamUrl : '');
+
+  // Detect stream source types
+  const isHls = Boolean(currentUrl && (currentUrl.includes('.m3u8') || currentUrl.includes('/hls/')));
+  const isDash = Boolean(currentUrl && currentUrl.includes('.mpd'));
+  const isDirectVideo = isHls || isDash || Boolean(currentUrl && currentUrl.includes('.mp4'));
+  const isDirectHls = isDirectVideo; // Used for UI conditionals
+
+  const tryNextSource = () => {
+    setActiveChannel(prev => (prev + 1) % (allChannels.length || 1));
+  };
+  tryNextSourceRef.current = tryNextSource;
 
   const handleLoad = () => {
     setIsLoading(false);
@@ -54,32 +62,66 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
   const handleError = () => {
     setIsLoading(false);
-    setStreamStatus('error');
+    if (allChannels.length > 1) {
+      tryNextSource();
+    } else {
+      setStreamStatus('error');
+    }
     if (loadTimeout) clearTimeout(loadTimeout);
   };
 
-  // Dynamically load hls.js from CDN if an HLS stream is loaded
+  // Dynamically load hls.js from CDN if an HLS stream is selected
   useEffect(() => {
-    if (!isDirectHls) return;
-    if (window.Hls) {
+    if (!isHls) return;
+    if (typeof window !== 'undefined' && window.Hls) {
       setHlsLoaded(true);
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js';
+    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
     script.async = true;
     script.onload = () => {
       setHlsLoaded(true);
     };
     script.onerror = () => {
-      setStreamStatus('error');
+      if (allChannels.length > 1) {
+        tryNextSourceRef.current?.();
+      } else {
+        setStreamStatus('error');
+      }
     };
     document.body.appendChild(script);
-  }, [isDirectHls]);
+  }, [isHls]);
 
-  // Video element binding effect
+  // Dynamically load shaka-player from CDN if a DASH stream is selected
   useEffect(() => {
-    if (!isDirectHls || !hlsLoaded || !videoRef.current) return;
+    if (!isDash) return;
+    if (typeof window !== 'undefined' && window.shaka) {
+      setShakaLoaded(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/shaka-player@4.7.11/dist/shaka-player.compiled.min.js';
+    script.async = true;
+    script.onload = () => {
+      try {
+        window.shaka?.polyfill?.installAll();
+      } catch (e) {}
+      setShakaLoaded(true);
+    };
+    script.onerror = () => {
+      if (allChannels.length > 1) {
+        tryNextSourceRef.current?.();
+      } else {
+        setStreamStatus('error');
+      }
+    };
+    document.body.appendChild(script);
+  }, [isDash]);
+
+  // Video element binding effect (HLS, DASH, MP4)
+  useEffect(() => {
+    if (!isDirectVideo || !videoRef.current) return;
 
     const video = videoRef.current;
     
@@ -87,104 +129,212 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
       hlsInstanceRef.current.destroy();
       hlsInstanceRef.current = null;
     }
+    if (shakaInstanceRef.current) {
+      shakaInstanceRef.current.destroy();
+      shakaInstanceRef.current = null;
+    }
 
     setIsLoading(true);
     setStreamStatus('loading');
     setIsPlaying(true);
 
-    // Safari / iOS Native HLS support
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = currentUrl;
-      const onLoadedMetadata = () => {
-        setIsLoading(false);
-        setStreamStatus('active');
-        video.play().catch(() => {});
-      };
-      const onNativeError = () => {
-        setStreamStatus('error');
-      };
-      
-      video.addEventListener('loadedmetadata', onLoadedMetadata);
-      video.addEventListener('error', onNativeError);
-      
-      return () => {
-        video.removeEventListener('loadedmetadata', onLoadedMetadata);
-        video.removeEventListener('error', onNativeError);
-      };
-    } else if (window.Hls) {
-      // Chrome/Firefox Hls.js setup
-      const hls = new window.Hls({
-        maxBufferSize: 20 * 1024 * 1024, // 20MB Max buffer
-        maxBufferLength: 20, // 20s
-        liveSyncDuration: 3, // Live delay
-      });
-      hlsInstanceRef.current = hls;
+    let stallTimer = null;
 
-      hls.loadSource(currentUrl);
-      hls.attachMedia(video);
+    if (isDash && shakaLoaded && window.shaka) {
+      const player = new window.shaka.Player(video);
+      shakaInstanceRef.current = player;
 
-      hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-        setIsLoading(false);
-        setStreamStatus('active');
-        video.play().catch(() => {});
-      });
-
-      hls.on(window.Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case window.Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad();
-              break;
-            case window.Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
-              break;
-            default:
-              setStreamStatus('error');
-              hls.destroy();
-              break;
+      const drm = currentChannel?.drm;
+      if (drm?.kid && drm?.key) {
+        player.configure({
+          drm: {
+            clearKeys: {
+              [drm.kid]: drm.key
+            }
           }
+        });
+      }
+
+      player.addEventListener('error', (event) => {
+        console.warn('[82 Player DASH Error]', event);
+        if (allChannels.length > 1) {
+          tryNextSourceRef.current?.();
+        } else {
+          setStreamStatus('error');
+        }
+      });
+
+      player.load(currentUrl).then(() => {
+        setIsLoading(false);
+        setStreamStatus('active');
+        video.play().catch(() => {});
+      }).catch((err) => {
+        console.warn('[82 Player DASH Load Error]', err);
+        if (allChannels.length > 1) {
+          tryNextSourceRef.current?.();
+        } else {
+          setStreamStatus('error');
         }
       });
 
       return () => {
-        if (hlsInstanceRef.current) {
-          hlsInstanceRef.current.destroy();
-          hlsInstanceRef.current = null;
+        if (shakaInstanceRef.current) {
+          shakaInstanceRef.current.destroy();
+          shakaInstanceRef.current = null;
         }
       };
-    }
-  }, [currentUrl, isDirectHls, hlsLoaded]);
+    } else if (isHls) {
+      // Safari / iOS Native HLS support
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = currentUrl;
+        const onLoadedMetadata = () => {
+          setIsLoading(false);
+          setStreamStatus('active');
+          video.play().catch(() => {});
+        };
+        const onNativeError = () => {
+          if (allChannels.length > 1) {
+            tryNextSourceRef.current?.();
+          } else {
+            setStreamStatus('error');
+          }
+        };
+        const onWaiting = () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            if (allChannels.length > 1) {
+              console.warn('[82 Player Native] 4s buffer stall detected. Switching server.');
+              tryNextSourceRef.current?.();
+            }
+          }, 4500);
+        };
+        const onPlaying = () => {
+          if (stallTimer) {
+            clearTimeout(stallTimer);
+            stallTimer = null;
+          }
+        };
+        
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('error', onNativeError);
+        video.addEventListener('waiting', onWaiting);
+        video.addEventListener('playing', onPlaying);
+        
+        return () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          video.removeEventListener('error', onNativeError);
+          video.removeEventListener('waiting', onWaiting);
+          video.removeEventListener('playing', onPlaying);
+        };
+      } else if (hlsLoaded && window.Hls) {
+        // Modern Chrome/Firefox Hls.js setup with Ultra-Low-Latency & stall detection
+        const hls = new window.Hls({
+          enableWorker: true,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 4,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          maxBufferSize: 30 * 1024 * 1024,
+          manifestLoadingTimeOut: 5000,
+          manifestLoadingMaxRetry: 2,
+          levelLoadingTimeOut: 5000,
+          fragLoadingTimeOut: 6000,
+          fragLoadingMaxRetry: 2,
+        });
+        hlsInstanceRef.current = hls;
 
-  // General connection timeouts
+        hls.on(window.Hls.Events.BUFFER_STALLED, () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            if (allChannels.length > 1) {
+              console.warn('[82 Player HLS] 4s buffer stall detected. Auto-switching server.');
+              tryNextSourceRef.current?.();
+            }
+          }, 4500);
+        });
+
+        hls.on(window.Hls.Events.FRAG_BUFFERED, () => {
+          if (stallTimer) {
+            clearTimeout(stallTimer);
+            stallTimer = null;
+          }
+        });
+
+        hls.loadSource(currentUrl);
+        hls.attachMedia(video);
+
+        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false);
+          setStreamStatus('active');
+          video.play().catch(() => {});
+        });
+
+        hls.on(window.Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case window.Hls.ErrorTypes.NETWORK_ERROR:
+                if (allChannels.length > 1) {
+                  tryNextSourceRef.current?.();
+                } else {
+                  hls.startLoad();
+                }
+                break;
+              case window.Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                if (allChannels.length > 1) {
+                  tryNextSourceRef.current?.();
+                } else {
+                  setStreamStatus('error');
+                  hls.destroy();
+                }
+                break;
+            }
+          }
+        });
+
+        return () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          if (hlsInstanceRef.current) {
+            hlsInstanceRef.current.destroy();
+            hlsInstanceRef.current = null;
+          }
+        };
+      }
+    } else if (currentUrl.includes('.mp4')) {
+      video.src = currentUrl;
+      video.play().catch(() => {});
+      setIsLoading(false);
+      setStreamStatus('active');
+    }
+  }, [currentUrl, isDirectVideo, isHls, isDash, hlsLoaded, shakaLoaded]);
+
+  // General connection timeout for iframes
   useEffect(() => {
-    if (isDirectHls) return;
+    if (isDirectVideo) return;
     setIsLoading(true);
     setStreamStatus('loading');
     const timeout = setTimeout(() => {
       setIsLoading(false);
-      setStreamStatus('offline');
-    }, 10000);
+      setStreamStatus('active'); // Assume active if frame didn't throw error
+    }, 8000);
     setLoadTimeout(timeout);
     return () => clearTimeout(timeout);
-  }, [currentUrl, isDirectHls]);
-
-  const tryNextSource = () => {
-    if (activeChannel < allChannels.length - 1) {
-      setActiveChannel(prev => prev + 1);
-    } else {
-      setActiveChannel(0);
-    }
-  };
+  }, [currentUrl, isDirectVideo]);
 
   const reloadStream = () => {
     setIsLoading(true);
     setStreamStatus('loading');
-    if (isDirectHls) {
+    if (isDirectVideo) {
       if (videoRef.current) {
         const video = videoRef.current;
         if (hlsInstanceRef.current) {
           hlsInstanceRef.current.loadSource(currentUrl);
           hlsInstanceRef.current.startLoad();
+        } else if (shakaInstanceRef.current) {
+          shakaInstanceRef.current.load(currentUrl).catch(() => {});
         } else {
           video.src = '';
           video.src = currentUrl;
@@ -264,7 +414,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             </div>
             <p className="mt-4 text-xs font-black uppercase tracking-widest text-[#ff6b35] font-mono">82 Live Engine Initializing...</p>
             <p className="mt-1 text-[11px] text-slate-400">
-              {isDirectHls ? 'Initializing HLS Direct Stream Engine' : 'Resolving 82 Multi-Server Feed'}
+              {isDash ? 'Connecting DASH Live Stream' : isHls ? 'Connecting HLS Direct Stream Feed' : 'Resolving 82 Multi-Server Feed'}
             </p>
           </div>
         )}
@@ -275,16 +425,16 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             <div className="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/20">
               <AlertCircle className="h-6 w-6 text-red-400" />
             </div>
-            <p className="text-sm font-bold text-white">Stream Embedding Restrained</p>
+            <p className="text-sm font-bold text-white">Stream Server Unavailable</p>
             <p className="mt-1.5 text-xs text-slate-400 max-w-sm">
-              The external stream server blocks raw iframe embeds or is temporarily offline.
+              The selected feed is temporarily unreachable. Switch to an alternate server.
             </p>
             <div className="mt-5 flex gap-2.5">
               <button
                 onClick={tryNextSource}
                 className="rounded-lg bg-gradient-to-r from-[#ff6b35] to-[#e0531f] px-4 py-2 text-xs font-black text-white hover:from-[#ff8554] hover:to-[#ff6b35] transition-all shadow-lg shadow-[#ff6b35]/25 cursor-pointer"
               >
-                Switch 82 Server
+                Switch Server
               </button>
               <button
                 onClick={reloadStream}
@@ -310,13 +460,13 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
               onClick={tryNextSource}
               className="mt-5 rounded-lg bg-gradient-to-r from-[#ff6b35] to-[#e0531f] px-4 py-2 text-xs font-black text-white hover:from-[#ff8554] hover:to-[#ff6b35] transition-all shadow-lg shadow-[#ff6b35]/25 cursor-pointer"
             >
-              Switch 82 Server
+              Switch Server
             </button>
           </div>
         )}
 
-        {/* Video Player or Sandboxed Iframe Embed */}
-        {isDirectHls ? (
+        {/* Video Player or Iframe Embed */}
+        {isDirectVideo ? (
           <video
             ref={videoRef}
             className="absolute inset-0 h-full w-full object-contain bg-black cursor-pointer"
@@ -330,7 +480,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             src={currentUrl}
             className="absolute inset-0 h-full w-full"
             allowFullScreen
-            allow="autoplay; fullscreen"
+            allow="autoplay; fullscreen; encrypted-media"
             onLoad={handleLoad}
             onError={handleError}
             sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
@@ -342,14 +492,14 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             src={currentUrl}
             className="absolute inset-0 h-full w-full"
             allowFullScreen
-            allow="autoplay; fullscreen"
+            allow="autoplay; fullscreen; encrypted-media"
             onLoad={handleLoad}
             onError={handleError}
           />
         )}
 
         {/* Play Icon Center Overlay (When Paused) */}
-        {isDirectHls && !isPlaying && streamStatus === 'active' && (
+        {isDirectVideo && !isPlaying && streamStatus === 'active' && (
           <div 
             onClick={handlePlayPause}
             className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1.5px] cursor-pointer animate-fade-in"
@@ -366,7 +516,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
             <ShieldAlert className="h-10 w-10 text-[#ff6b35] mb-3" />
             <p className="text-sm font-bold text-white">Fixture Has Not Started Yet</p>
             <p className="mt-1 text-xs text-slate-400 max-w-xs">
-              Live 82 stream feeds will synchronize automatically near kick-off.
+              Live stream feeds will synchronize automatically near kick-off.
             </p>
           </div>
         )}
@@ -384,8 +534,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           )}
         </div>
 
-        {/* CUSTOM VIDEO CONTROLS OVERLAY (Only for Direct HLS Video) */}
-        {isDirectHls && streamStatus === 'active' && (
+        {/* CUSTOM VIDEO CONTROLS OVERLAY (Only for Direct Video) */}
+        {isDirectVideo && streamStatus === 'active' && (
           <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-2.5">
             
             {/* Live timeline indicator */}
@@ -433,7 +583,8 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
 
                 {/* Status Indicator */}
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-[#ff6b35]/15 border border-[#ff6b35]/30 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#ff6b35]">
-                  82 Native Player
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#ff6b35] animate-ping" />
+                  {isDash ? '82 DASH Ultra Player' : '82 Ultra-Low Latency Player'}
                 </span>
               </div>
 
@@ -461,7 +612,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
       </div>
 
       {/* Dynamic Security/Compatibility Alert */}
-      {!isDirectHls && sandboxShield && (
+      {!isDirectVideo && sandboxShield && (
         <div className="bg-orange-50 dark:bg-[#141c2e] border border-orange-200 dark:border-[#ff6b35]/25 rounded-xl p-4 text-xs text-slate-700 dark:text-slate-300 leading-relaxed animate-fade-in space-y-2.5 shadow-sm">
           <div className="flex items-center gap-2 text-[#ff6b35] font-black">
             <Shield className="h-4 w-4 text-[#ff6b35]" />
@@ -477,7 +628,7 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 glass-panel p-4 rounded-xl shadow-md border border-slate-200/80 dark:border-[#1e2e48]">
         
         {/* Left Side: Security Warning or Ad-Shield Toggle */}
-        {!isDirectHls ? (
+        {!isDirectVideo ? (
           <div className="flex items-center gap-3 bg-slate-100 dark:bg-[#07090f] p-2.5 rounded-lg border border-slate-200 dark:border-[#1e2e48] w-full lg:w-auto shadow-inner">
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-1.5">
@@ -507,10 +658,10 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
           <div className="flex items-center gap-2.5 text-left bg-slate-100 dark:bg-[#07090f] p-2.5 rounded-lg border border-slate-200 dark:border-[#1e2e48] w-full lg:w-auto shadow-inner">
             <div className="flex flex-col text-left">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#ff6b35]">
-                82 Native Player Active
+                {isDash ? '82 DASH Ultra Player' : '82 Native Player Active'}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-[#8a96b8] mt-0.5 leading-none block">
-                Direct HLS stream decoded with zero advertisements.
+                Direct live stream feed decoded with zero advertisements.
               </span>
             </div>
           </div>
@@ -581,8 +732,14 @@ export default function StreamPlayer({ streamUrl, channels, matchTitle, matchSta
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${activeChannel === idx ? 'bg-[#ff6b35] animate-pulse' : 'bg-slate-400 dark:bg-slate-700'}`} />
                   <span>{ch.name || `82 Server ${idx + 1}`}</span>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${ch.quality === 'HD' || ch.quality === 'FHD' || ch.quality === '1080p' ? 'text-[#ff6b35] bg-[#ff6b35]/15' : 'text-slate-500 bg-slate-100 dark:bg-[#141c2e]'}`}>
-                    {ch.quality === 'FHD' || ch.quality === '1080p' ? 'HD' : (ch.quality || 'HD')}
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                    ch.url?.includes('.m3u8')
+                      ? 'text-emerald-400 bg-emerald-500/15'
+                      : ch.url?.includes('.mpd')
+                      ? 'text-cyan-400 bg-cyan-500/15'
+                      : 'text-[#ff6b35] bg-[#ff6b35]/15'
+                  }`}>
+                    {ch.url?.includes('.m3u8') ? 'HLS' : (ch.url?.includes('.mpd') ? 'DASH' : (ch.quality || 'HD'))}
                   </span>
                 </button>
               ))}

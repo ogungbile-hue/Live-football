@@ -9,6 +9,11 @@ export interface StreamSource {
   url: string;
   label: string;
   quality?: string;
+  drm?: {
+    kid: string;
+    key: string;
+  };
+  headers?: Record<string, string>;
 }
 
 export interface Channel {
@@ -17,6 +22,11 @@ export interface Channel {
   proxiedUrl?: string;
   provider?: string;
   quality?: string;
+  drm?: {
+    kid: string;
+    key: string;
+  };
+  headers?: Record<string, string>;
 }
 
 export interface Match {

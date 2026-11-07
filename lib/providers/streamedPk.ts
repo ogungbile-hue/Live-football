@@ -29,16 +29,8 @@ export class StreamedPkProvider implements StreamProvider {
   name = 'Streamed.pk';
 
   async fetchRawMatches(): Promise<StreamedRawMatch[]> {
-    const cache = getCacheManager();
-    return cache.swr('streamed_raw', async () => {
-      try {
-        const data = await fetchWithTimeout(STREAMED_API, TIMEOUT_MS);
-        return Array.isArray(data) ? data : [];
-      } catch (err) {
-        logger.error('Streamed.pk API request failed', err);
-        return [];
-      }
-    }, 20);
+    // Streamed.pk permanently closed in October 2026
+    return [];
   }
 
   async fetchMatches(): Promise<Match[]> {
