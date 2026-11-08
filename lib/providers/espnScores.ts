@@ -256,12 +256,6 @@ export async function enrichMatchesWithLiveScores(matches: Match[]): Promise<Mat
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
-    const fallbackChannels = [
-      { name: 'Sky Sports Premier League', url: 'https://v3.cdnlive.tv/skysportspremierleague/tracks-v1a1/mono.m3u8' },
-      { name: 'TNT Sports 1', url: 'https://v3.cdnlive.tv/tntsports1/tracks-v1a1/mono.m3u8' },
-      { name: 'beIN Sports 1', url: 'https://v3.cdnlive.tv/beinsports1en/tracks-v1a1/mono.m3u8' },
-    ];
-
     enriched.push({
       id: `espn-${espn.id}`,
       title: `${espn.homeTeam.displayName} vs ${espn.awayTeam.displayName}`,
@@ -283,14 +277,8 @@ export async function enrichMatchesWithLiveScores(matches: Match[]): Promise<Mat
       poster: '',
       venue: '',
       note: '🔴 LIVE',
-      sources: fallbackChannels.map((c, idx) => ({
-        source: 'cdnlive',
-        id: `espn-${slug}-${idx}`,
-        url: c.url,
-        label: `82 Broadcast ${idx + 1} (${c.name})`,
-        quality: 'HD',
-      })),
-      fallbackChannels,
+      sources: [],
+      fallbackChannels: [],
       currentMinute: espn.detail || espn.displayClock || 'LIVE',
       currentMinuteNumber: espn.clock > 0 ? Math.floor(espn.clock / 60) : 45,
       homeScore: espn.homeTeam.score,

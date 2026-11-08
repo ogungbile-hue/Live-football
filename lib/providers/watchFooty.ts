@@ -151,20 +151,7 @@ export interface MatchStats {
 }
 
 export async function getMatchStats(matchId: string): Promise<MatchStats | null> {
-  try {
-    const data = await fetchWithTimeout(`${WATCHFOOTY_API}/api/v1/match/${matchId}/stats`, SHORT_TIMEOUT);
-    if (!data || !data.statistics) return null;
-    return {
-      venue: data.venue || '',
-      leagueLogo: data.leagueLogo ? data.leagueLogo : '',
-      poster: data.poster ? data.poster : '',
-      boxscore: data.statistics?.boxscore || null,
-      rosters: data.statistics?.rosters || null,
-      commentary: data.statistics?.commentary || null,
-    };
-  } catch (err) {
-    return null;
-  }
+  return null;
 }
 
 export async function getTopTeams(): Promise<string[]> {

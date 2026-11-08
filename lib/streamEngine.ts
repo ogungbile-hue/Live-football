@@ -14,7 +14,6 @@ export { getMatchStats, getLeagues, getTopTeams };
 
 const providers = [
   new SportsDataProvider(),
-  new CdnLiveProvider(),
 ];
 
 export function getStreamRedirectUrl(originalUrl: string): string {
@@ -54,7 +53,16 @@ export async function getMatches(): Promise<Match[]> {
         if (usedIndices.has(j)) continue;
         const candidate = allMatches[j];
 
-        if (base.id === candidate.id || teamsMatch(base.title, candidate.title)) {
+        // Check if fixtures are genuinely the same: same ID, or matching teams within similar timeframe / tournament
+        const timeDiffHours = Math.abs((base.timestamp || 0) - (candidate.timestamp || 0)) / (1000 * 60 * 60);
+        const baseTourn = (base.tournament || '').toLowerCase();
+        const candTourn = (candidate.tournament || '').toLowerCase();
+        const isCompatibleTournament = !baseTourn || !candTourn || baseTourn === 'football' || candTourn === 'football' || baseTourn === candTourn;
+        const isSameFixture = base.id === candidate.id || (
+          teamsMatch(base.title, candidate.title) && (isCompatibleTournament || timeDiffHours <= 3)
+        );
+
+        if (isSameFixture) {
           usedIndices.add(j);
           // Merge metadata
           if (candidate.status === 'live') base.status = 'live';
@@ -86,7 +94,7 @@ export async function getMatches(): Promise<Match[]> {
     const enrichedList = await enrichMatchesWithLiveScores(mergedList);
 
     // Save full list (including finished) to cache for direct match lookup
-    await cache.set('all_matches_full', enrichedList, 20);
+    await cache.set('all_matches_full', enrichedList, 180);
 
     // Filter for active fixtures (live and upcoming) for listings
     const activeMatches = enrichedList.filter(m => m.status === 'live' || m.status === 'upcoming');
@@ -113,7 +121,7 @@ export async function getMatches(): Promise<Match[]> {
     });
 
     return activeMatches;
-  }, 12);
+  }, 60);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
@@ -171,7 +179,8 @@ export async function resolveAllStreams(
     const filteredServers = allServers.filter(s => 
       s.url && 
       !s.url.toLowerCase().includes('watchfooty') && 
-      !s.name.toLowerCase().includes('watchfooty')
+      !s.name?.toLowerCase().includes('watchfooty') &&
+      !s.url.toLowerCase().includes('v3.cdnlive.tv')
     );
 
     if (filteredServers.length === 0) {
@@ -180,8 +189,23 @@ export async function resolveAllStreams(
 
     const qualityOrder: Record<string, number> = { 'FHD': 0, 'HD': 0, '1080p': 0, '720p': 1, 'SD': 2 };
     filteredServers.sort((a, b) => {
-      const aHls = (a.url || '').includes('.m3u8') ? 0 : 1;
-      const bHls = (b.url || '').includes('.m3u8') ? 0 : 1;
+      const aUrl = (a.url || '').toLowerCase();
+      const bUrl = (b.url || '').toLowerCase();
+      const aName = (a.name || '').toUpperCase();
+      const bName = (b.name || '').toUpperCase();
+
+      const aIsAd = aUrl.includes('genoads');
+      const bIsAd = bUrl.includes('genoads');
+      if (aIsAd && !bIsAd) return 1;
+      if (!aIsAd && bIsAd) return -1;
+
+      const aIsPremium = /SKY|FUBO|BEIN|PARAMOUNT|TNT|SUPERSPORT|DAZN|CANAL|OPTUS|PREMIER/.test(aName);
+      const bIsPremium = /SKY|FUBO|BEIN|PARAMOUNT|TNT|SUPERSPORT|DAZN|CANAL|OPTUS|PREMIER/.test(bName);
+      if (aIsPremium && !bIsPremium) return -1;
+      if (!aIsPremium && bIsPremium) return 1;
+
+      const aHls = aUrl.includes('.m3u8') ? 0 : 1;
+      const bHls = bUrl.includes('.m3u8') ? 0 : 1;
       if (aHls !== bHls) return aHls - bHls;
       return (qualityOrder[a.quality || 'SD'] || 2) - (qualityOrder[b.quality || 'SD'] || 2);
     });

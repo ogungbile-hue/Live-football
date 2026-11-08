@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Match, Channel, StreamSource } from '../types';
 import { StreamProvider } from './types';
 import { fetchWithTimeout } from './baseProvider';
@@ -5,8 +7,11 @@ import { teamsMatch, getLeaguePriority, getCountryForLeague } from '../utils/mat
 import { getCacheManager } from '../cache/cacheManager';
 import logger from '../logger';
 
-const SPORTS_DATA_API = 'https://raw.githubusercontent.com/sm-monirulislam/Upcoming-and-Live-Sports-Data/main/Sports_data.json';
-const TIMEOUT_MS = 6000;
+const SPORTS_DATA_ENDPOINTS = [
+  'https://cdn.jsdelivr.net/gh/sm-monirulislam/Upcoming-and-Live-Sports-Data@main/Sports_data.json',
+  'https://raw.githubusercontent.com/sm-monirulislam/Upcoming-and-Live-Sports-Data/main/Sports_data.json',
+];
+const TIMEOUT_MS = 10000;
 
 interface RawStream {
   channel_name?: string;
@@ -57,17 +62,52 @@ export class SportsDataProvider implements StreamProvider {
   async fetchRawEvents(): Promise<RawSportsEvent[]> {
     const cache = getCacheManager();
     return cache.swr('sportsdata_raw_events', async () => {
-      try {
-        const data = await fetchWithTimeout(SPORTS_DATA_API, TIMEOUT_MS);
-        if (data && Array.isArray(data.matches)) {
-          return data.matches.filter((m: RawSportsEvent) => (m.Category || '').toLowerCase() === 'football');
+      let lastErr: any = null;
+      for (const endpoint of SPORTS_DATA_ENDPOINTS) {
+        try {
+          const data = await fetchWithTimeout(endpoint, TIMEOUT_MS);
+          if (data && Array.isArray(data.matches)) {
+            const football = data.matches.filter((m: RawSportsEvent) => (m.Category || '').toLowerCase() === 'football');
+            if (football.length > 0) {
+              // Asynchronously save to local disk cache for complete offline resilience
+              try {
+                const cachePath = path.join(process.cwd(), 'data', 'sports_data_cache.json');
+                fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+                fs.writeFile(cachePath, JSON.stringify(data), () => {});
+              } catch (e) {}
+              return football;
+            }
+          }
+        } catch (err) {
+          lastErr = err;
         }
-        return [];
-      } catch (err) {
-        logger.error('SportsData API request failed', err);
-        return [];
       }
-    }, 30);
+      logger.error('All SportsData endpoints failed, checking memory fallback', lastErr);
+      const existing = await cache.get<RawSportsEvent[]>('sportsdata_raw_events');
+      if (existing && existing.length > 0) {
+        logger.warn('Returning previously cached SportsData events due to fetch failure');
+        return existing;
+      }
+
+      // Check local persistent disk fallback cache
+      try {
+        const cachePath = path.join(process.cwd(), 'data', 'sports_data_cache.json');
+        if (fs.existsSync(cachePath)) {
+          const raw = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+          if (raw && Array.isArray(raw.matches)) {
+            const diskFootball = raw.matches.filter((m: RawSportsEvent) => (m.Category || '').toLowerCase() === 'football');
+            if (diskFootball.length > 0) {
+              logger.warn('Loaded SportsData fallback events from local disk cache', { count: diskFootball.length });
+              return diskFootball;
+            }
+          }
+        }
+      } catch (diskErr) {
+        logger.error('Failed loading SportsData disk cache', diskErr);
+      }
+
+      return [];
+    }, 300);
   }
 
   async fetchMatches(): Promise<Match[]> {
@@ -87,11 +127,33 @@ export class SportsDataProvider implements StreamProvider {
       const isTimeLive = kickoffTime && diffMinutes >= 0 && diffMinutes < 130;
       const isLive = isExplicitLive || isTimeLive;
 
-      // Filter and sort available streams: HLS (.m3u8) first, then DASH (.mpd)
-      const validStreams = (event.streams || []).filter(s => s.stream_url && s.stream_url.startsWith('http'));
+      // Smart stream prioritization:
+      // 1. Filter out known offline domains
+      // 2. Deprioritize ad-wrapper networks (e.g. genoads)
+      // 3. Prioritize high-quality official networks (Sky Sports, Fubo, BeIN, Paramount, TNT, SuperSport)
+      const validStreams = (event.streams || []).filter(s => 
+        s.stream_url && 
+        s.stream_url.startsWith('http') &&
+        !s.stream_url.toLowerCase().includes('v3.cdnlive.tv')
+      );
       validStreams.sort((a, b) => {
-        const aHls = (a.stream_url || '').includes('.m3u8') ? 0 : 1;
-        const bHls = (b.stream_url || '').includes('.m3u8') ? 0 : 1;
+        const aUrl = (a.stream_url || '').toLowerCase();
+        const bUrl = (b.stream_url || '').toLowerCase();
+        const aName = (a.channel_name || '').toUpperCase();
+        const bName = (b.channel_name || '').toUpperCase();
+
+        const aIsAd = aUrl.includes('genoads');
+        const bIsAd = bUrl.includes('genoads');
+        if (aIsAd && !bIsAd) return 1;
+        if (!aIsAd && bIsAd) return -1;
+
+        const aIsPremium = /SKY|FUBO|BEIN|PARAMOUNT|TNT|SUPERSPORT|DAZN|CANAL|OPTUS|PREMIER/.test(aName);
+        const bIsPremium = /SKY|FUBO|BEIN|PARAMOUNT|TNT|SUPERSPORT|DAZN|CANAL|OPTUS|PREMIER/.test(bName);
+        if (aIsPremium && !bIsPremium) return -1;
+        if (!aIsPremium && bIsPremium) return 1;
+
+        const aHls = aUrl.includes('.m3u8') ? 0 : 1;
+        const bHls = bUrl.includes('.m3u8') ? 0 : 1;
         return aHls - bHls;
       });
 
@@ -186,7 +248,11 @@ export class SportsDataProvider implements StreamProvider {
       }
 
       if (target && target.streams) {
-        const valid = target.streams.filter(s => s.stream_url && s.stream_url.startsWith('http'));
+        const valid = target.streams.filter(s => 
+          s.stream_url && 
+          s.stream_url.startsWith('http') &&
+          !s.stream_url.toLowerCase().includes('v3.cdnlive.tv')
+        );
         // Prioritize .m3u8 HLS streams, then DASH
         valid.sort((a, b) => {
           const aHls = (a.stream_url || '').includes('.m3u8') ? 0 : 1;
@@ -213,7 +279,7 @@ export class SportsDataProvider implements StreamProvider {
       const generalStreams: Channel[] = [];
       for (const ev of events) {
         for (const s of (ev.streams || [])) {
-          if (s.stream_url && s.stream_url.includes('.m3u8')) {
+          if (s.stream_url && s.stream_url.includes('.m3u8') && !s.stream_url.toLowerCase().includes('v3.cdnlive.tv')) {
             const name = s.channel_name || '';
             if (name.includes('SKY') || name.includes('SPORT') || name.includes('STREAM') || name.includes('TNT') || name.includes('FUBO')) {
               if (!generalStreams.some(g => g.url === s.stream_url)) {

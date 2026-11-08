@@ -6,7 +6,7 @@ import { getCacheManager } from '../cache/cacheManager';
 import logger from '../logger';
 
 const CDN_LIVE_API = 'https://api.cdnlivetv.tv/api/v1/events/sports/?user=cdnlivetv&plan=free';
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 3000;
 
 interface CdnliveRawMatch {
   gameID: string;
@@ -57,7 +57,13 @@ export class CdnLiveProvider implements StreamProvider {
       const isTimeLive = kickoffTime && diffMinutes >= 0 && diffMinutes < 140;
       const isLive = isExplicitLive || isTimeLive;
 
-      const channels = (event.channels || []).map((ch, idx) => ({
+      const validEventChannels = (event.channels || []).filter(ch => 
+        ch.url && 
+        ch.url.startsWith('http') && 
+        !ch.url.toLowerCase().includes('v3.cdnlive.tv')
+      );
+
+      const channels = validEventChannels.map((ch, idx) => ({
         source: 'cdnlive',
         id: ch.id || String(idx),
         url: ch.url,
@@ -81,7 +87,7 @@ export class CdnLiveProvider implements StreamProvider {
         venue: '',
         note: event.tournament || '',
         sources: channels,
-        fallbackChannels: (event.channels || []).map(ch => ({ name: ch.channel_name || 'CDNLive', url: ch.url })),
+        fallbackChannels: validEventChannels.map(ch => ({ name: ch.channel_name || 'CDNLive', url: ch.url })),
         currentMinute: isLive ? (event.status !== 'NS' ? event.status : "LIVE") : '',
         currentMinuteNumber: isLive ? (diffMinutes >= 0 ? diffMinutes : 45) : -1,
         homeScore: 0,
@@ -111,7 +117,7 @@ export class CdnLiveProvider implements StreamProvider {
 
       if (targetEvent && targetEvent.channels) {
         return targetEvent.channels
-          .filter(ch => ch.url)
+          .filter(ch => ch.url && !ch.url.toLowerCase().includes('v3.cdnlive.tv'))
           .map((ch, idx) => ({
             name: ch.channel_name || `Server ${idx + 1} (CDNLive)`,
             url: ch.url,
@@ -121,12 +127,14 @@ export class CdnLiveProvider implements StreamProvider {
       }
 
       if (preFetchedMatch?.fallbackChannels) {
-        return preFetchedMatch.fallbackChannels.map((ch, idx) => ({
-          name: ch.name || `Server ${idx + 1} (CDNLive)`,
-          url: ch.url,
-          provider: this.id,
-          quality: 'HD',
-        }));
+        return preFetchedMatch.fallbackChannels
+          .filter(ch => ch.url && !ch.url.toLowerCase().includes('v3.cdnlive.tv'))
+          .map((ch, idx) => ({
+            name: ch.name || `Server ${idx + 1} (CDNLive)`,
+            url: ch.url,
+            provider: this.id,
+            quality: 'HD',
+          }));
       }
 
       return [];
